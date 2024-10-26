@@ -38,7 +38,7 @@ import { calculateApiCost } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
 import { parseAssistantMessage } from "../utils/parsers"
 import { arePathsEqual, getReadablePath } from "../utils/path"
-import { formatResponse, truncateHalfConversation } from "./formatter"
+import { formatResponse, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
 import { addCustomInstructions, SYSTEM_PROMPT } from "./prompts"
 import { ClineProvider, GlobalFileNames } from "./webview"
@@ -936,7 +936,7 @@ export class Cline {
 				const contextWindow = this.api.getModel().info.contextWindow || 128_000
 				const maxAllowedSize = Math.max(contextWindow - 40_000, contextWindow * 0.8)
 				if (totalTokens >= maxAllowedSize) {
-					const truncatedMessages = truncateHalfConversation(this.apiConversationHistory)
+					const truncatedMessages = truncateConversation(this.apiConversationHistory)
 					await this.overwriteApiConversationHistory(truncatedMessages)
 				}
 			}
