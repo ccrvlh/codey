@@ -1014,7 +1014,8 @@ export class Cline {
 
 		await this.addToApiConversationHistory({ role: "user", content: userContent })
 
-		// since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request (to load potential details for example), we need to update the text of that message
+		// since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request
+		// (to load potential details for example), we need to update the text of that message
 		const lastApiReqIndex = findLastIndex(this.clineMessages, (m) => m.say === "api_req_started")
 		this.clineMessages[lastApiReqIndex].text = JSON.stringify({
 			request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n"),
@@ -1029,8 +1030,10 @@ export class Cline {
 			let outputTokens = 0
 			let totalCost: number | undefined
 
-			// update api_req_started. we can't use api_req_finished anymore since it's a unique case where it could come after a streaming message (ie in the middle of being updated or executed)
-			// fortunately api_req_finished was always parsed out for the gui anyways, so it remains solely for legacy purposes to keep track of prices in tasks from history
+			// update api_req_started. we can't use api_req_finished anymore since it's a unique case where it could come after a streaming message
+			// (ie in the middle of being updated or executed)
+			// fortunately api_req_finished was always parsed out for the gui anyways,
+			// so it remains solely for legacy purposes to keep track of prices in tasks from history
 			// (it's worth removing a few months from now)
 			const updateApiReqMsg = (cancelReason?: ClineApiReqCancelReason, streamingFailedMessage?: string) => {
 				this.clineMessages[lastApiReqIndex].text = JSON.stringify({
@@ -1103,7 +1106,9 @@ export class Cline {
 			this.presentAssistantMessageHasPendingUpdates = false
 			await this.diffViewProvider.reset()
 
-			const stream = this.attemptApiRequest(previousApiReqIndex) // yields only if the first chunk is successful, otherwise will allow the user to retry the request (most likely due to rate limit error, which gets thrown on the first chunk)
+			// yields only if the first chunk is successful, otherwise will allow the user to retry the request
+			// (most likely due to rate limit error, which gets thrown on the first chunk)
+			const stream = this.attemptApiRequest(previousApiReqIndex)
 			let assistantMessage = ""
 			try {
 				for await (const chunk of stream) {
@@ -1121,7 +1126,8 @@ export class Cline {
 							const prevLength = this.assistantMessageContent.length
 							this.assistantMessageContent = parseAssistantMessage(assistantMessage)
 							if (this.assistantMessageContent.length > prevLength) {
-								this.userMessageContentReady = false // new content we need to present, reset to false in case previous content set this to true
+								// new content we need to present, reset to false in case previous content set this to true
+								this.userMessageContentReady = false
 							}
 							// present content to user
 							this.presentAssistantMessage()
@@ -1131,7 +1137,8 @@ export class Cline {
 					if (this.abort) {
 						console.log("aborting stream...")
 						if (!this.abandoned) {
-							// only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs, in which case this would affect future instances of cline)
+							// only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs,
+							// in which case this would affect future instances of cline)
 							await abortStream("user_cancelled")
 						}
 						break // aborts the stream
@@ -1140,14 +1147,18 @@ export class Cline {
 					if (this.didRejectTool) {
 						// userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
 						assistantMessage += "\n\n[Response interrupted by user feedback]"
-						// this.userMessageContentReady = true // instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
+						// instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
+						// this.userMessageContentReady = true
 						break
 					}
 				}
 			} catch (error) {
-				// abandoned happens when extension is no longer waiting for the cline instance to finish aborting (error is thrown here when any function in the for loop throws due to this.abort)
+				// abandoned happens when extension is no longer waiting for the cline instance to finish aborting
+				// (error is thrown here when any function in the for loop throws due to this.abort)
 				if (!this.abandoned) {
-					this.abortTask() // if the stream failed, there's various states the task could be in (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
+					// if the stream failed, there's various states the task could be in
+					// (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
+					this.abortTask()
 					await abortStream(
 						"streaming_failed",
 						error.message ?? JSON.stringify(serializeError(error), null, 2)
@@ -1160,7 +1171,6 @@ export class Cline {
 				}
 			}
 
-			// need to call here in case the stream was aborted
 			if (this.abort) {
 				throw new Error("Cline instance aborted")
 			}
@@ -1168,14 +1178,19 @@ export class Cline {
 			this.didCompleteReadingStream = true
 
 			// set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
-			// (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc. whatever the case, presentAssistantMessage relies on these blocks either to be completed or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
+			// (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc.
+			// whatever the case, presentAssistantMessage relies on these blocks either to be completed
+			// or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
 			const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
 			partialBlocks.forEach((block) => {
 				block.partial = false
 			})
 			// this.assistantMessageContent.forEach((e) => (e.partial = false)) // cant just do this bc a tool could be in the middle of executing ()
 			if (partialBlocks.length > 0) {
-				this.presentAssistantMessage() // if there is content to update then it will complete and update this.userMessageContentReady to true, which we pwaitfor before making the next request. all this is really doing is presenting the last partial message that we just set to complete
+				// if there is content to update then it will complete and update this.userMessageContentReady to true,
+				// which we pwaitfor before making the next request.
+				// all this is really doing is presenting the last partial message that we just set to complete
+				this.presentAssistantMessage()
 			}
 
 			updateApiReqMsg()
@@ -1183,7 +1198,8 @@ export class Cline {
 			await this.providerRef.deref()?.postStateToWebview()
 
 			// now add to apiconversationhistory
-			// need to save assistant responses to file before proceeding to tool use since user can exit at any moment and we wouldn't be able to save the assistant's response
+			// need to save assistant responses to file before proceeding to tool use since user can exit at any moment
+			// and we wouldn't be able to save the assistant's response
 			let didEndLoop = false
 			if (assistantMessage.length > 0) {
 				await this.addToApiConversationHistory({
@@ -1191,9 +1207,13 @@ export class Cline {
 					content: [{ type: "text", text: assistantMessage }],
 				})
 
-				// NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true. It was due to it not recursively calling for partial blocks when didRejectTool, so it would get stuck waiting for a partial block to complete before it could continue.
+				// NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true.
+				// It was due to it not recursively calling for partial blocks when didRejectTool,
+				// so it would get stuck waiting for a partial block to complete before it could continue.
 				// in case the content blocks finished
-				// it may be the api stream finished after the last parsed content block was executed, so  we are able to detect out of bounds and set userMessageContentReady to true (note you should not call presentAssistantMessage since if the last block is completed it will be presented again)
+				// it may be the api stream finished after the last parsed content block was executed,
+				// so  we are able to detect out of bounds and set userMessageContentReady to true
+				// (note you should not call presentAssistantMessage since if the last block is completed it will be presented again)
 				// const completeBlocks = this.assistantMessageContent.filter((block) => !block.partial) // if there are any partial blocks after the stream ended we can consider them invalid
 				// if (this.currentStreamingContentIndex >= completeBlocks.length) {
 				// 	this.userMessageContentReady = true
