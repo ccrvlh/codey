@@ -37,6 +37,7 @@ import { AssistantMessageContent, TextContent, ToolParamName, ToolResponse, Tool
 import { GlobalFileNames } from "../utils/const"
 import { calculateApiCost } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
+import { timeAgoDescription } from "../utils/helpers"
 import { parseAssistantMessage } from "../utils/parsers"
 import { arePathsEqual, getReadablePath } from "../utils/path"
 import { formatResponse, truncateConversation } from "./formatter"
@@ -413,7 +414,10 @@ export class Cline {
 			modifiedClineMessages.splice(lastRelevantMessageIndex + 1)
 		}
 
-		// since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
+		// since we don't use api_req_finished anymore
+		// we need to check if the last api_req_started has a cost value,
+		// if it doesn't and no cancellation reason to present,
+		// then we remove it since it indicates an api request without any partial content streamed
 		const lastApiReqStartedIndex = findLastIndex(
 			modifiedClineMessages,
 			(m) => m.type === "say" && m.say === "api_req_started"
@@ -435,16 +439,6 @@ export class Cline {
 			.slice()
 			.reverse()
 			.find((m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")) // could be multiple resume tasks
-		// const lastClineMessage = this.clineMessages[lastClineMessageIndex]
-		// could be a completion result with a command
-		// const secondLastClineMessage = this.clineMessages
-		// 	.slice()
-		// 	.reverse()
-		// 	.find(
-		// 		(m, index) =>
-		// 			index !== lastClineMessageIndex && !(m.ask === "resume_task" || m.ask === "resume_completed_task")
-		// 	)
-		// (lastClineMessage?.ask === "command" && secondLastClineMessage?.ask === "completion_result")
 
 		let askType: ClineAsk
 		if (lastClineMessage?.ask === "completion_result") {
@@ -500,110 +494,80 @@ export class Cline {
 		})
 		existingApiConversationHistory = conversationWithoutToolBlocks
 
-		// FIXME: remove tool use blocks altogether
-
-		// if the last message is an assistant message, we need to check if there's tool use since every tool use has to have a tool response
-		// if there's no tool use and only a text block, then we can just add a user message
-		// (note this isn't relevant anymore since we use custom tool prompts instead of tool use blocks, but this is here for legacy purposes in case users resume old tasks)
-
-		// if the last message is a user message, we can need to get the assistant message before it to see if it made tool calls, and if so, fill in the remaining tool responses with 'interrupted'
-
 		let modifiedOldUserContent: UserContent // either the last message if its user message, or the user message before the last (assistant) message
 		let modifiedApiConversationHistory: Anthropic.Messages.MessageParam[] // need to remove the last user message to replace with new modified user message
-		if (existingApiConversationHistory.length > 0) {
-			const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
 
-			if (lastMessage.role === "assistant") {
-				const content = Array.isArray(lastMessage.content)
-					? lastMessage.content
-					: [{ type: "text", text: lastMessage.content }]
-				const hasToolUse = content.some((block) => block.type === "tool_use")
+		if (existingApiConversationHistory.length <= 0) {
+			throw new Error("Unexpected: No existing API conversation history")
+		}
 
-				if (hasToolUse) {
-					const toolUseBlocks = content.filter(
-						(block) => block.type === "tool_use"
-					) as Anthropic.Messages.ToolUseBlock[]
-					const toolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map((block) => ({
-						type: "tool_result",
-						tool_use_id: block.id,
-						content: "Task was interrupted before this tool call could be completed.",
-					}))
-					modifiedApiConversationHistory = [...existingApiConversationHistory] // no changes
-					modifiedOldUserContent = [...toolResponses]
-				} else {
-					modifiedApiConversationHistory = [...existingApiConversationHistory]
-					modifiedOldUserContent = []
-				}
-			} else if (lastMessage.role === "user") {
-				const previousAssistantMessage: Anthropic.Messages.MessageParam | undefined =
-					existingApiConversationHistory[existingApiConversationHistory.length - 2]
+		const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
 
-				const existingUserContent: UserContent = Array.isArray(lastMessage.content)
-					? lastMessage.content
-					: [{ type: "text", text: lastMessage.content }]
-				if (previousAssistantMessage && previousAssistantMessage.role === "assistant") {
-					const assistantContent = Array.isArray(previousAssistantMessage.content)
-						? previousAssistantMessage.content
-						: [{ type: "text", text: previousAssistantMessage.content }]
+		if (lastMessage.role === "assistant") {
+			const content = Array.isArray(lastMessage.content) ? lastMessage.content : [{ type: "text", text: lastMessage.content }]
+			const hasToolUse = content.some((block) => block.type === "tool_use")
 
-					const toolUseBlocks = assistantContent.filter(
-						(block) => block.type === "tool_use"
-					) as Anthropic.Messages.ToolUseBlock[]
+			if (hasToolUse) {
+				const toolUseBlocks = content.filter((block) => block.type === "tool_use") as Anthropic.Messages.ToolUseBlock[]
+				const toolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map((block) => ({
+					type: "tool_result",
+					tool_use_id: block.id,
+					content: "Task was interrupted before this tool call could be completed.",
+				}))
+				modifiedApiConversationHistory = [...existingApiConversationHistory] // no changes
+				modifiedOldUserContent = [...toolResponses]
+			} else {
+				modifiedApiConversationHistory = [...existingApiConversationHistory]
+				modifiedOldUserContent = []
+			}
+		} else if (lastMessage.role === "user") {
+			const previousAssistantMessage: Anthropic.Messages.MessageParam | undefined =
+				existingApiConversationHistory[existingApiConversationHistory.length - 2]
 
-					if (toolUseBlocks.length > 0) {
-						const existingToolResults = existingUserContent.filter(
-							(block) => block.type === "tool_result"
-						) as Anthropic.ToolResultBlockParam[]
+			const existingUserContent: UserContent = Array.isArray(lastMessage.content)
+				? lastMessage.content
+				: [{ type: "text", text: lastMessage.content }]
+			if (previousAssistantMessage && previousAssistantMessage.role === "assistant") {
+				const assistantContent = Array.isArray(previousAssistantMessage.content)
+					? previousAssistantMessage.content
+					: [{ type: "text", text: previousAssistantMessage.content }]
 
-						const missingToolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks
-							.filter(
-								(toolUse) => !existingToolResults.some((result) => result.tool_use_id === toolUse.id)
-							)
-							.map((toolUse) => ({
-								type: "tool_result",
-								tool_use_id: toolUse.id,
-								content: "Task was interrupted before this tool call could be completed.",
-							}))
+				const toolUseBlocks = assistantContent.filter(
+					(block) => block.type === "tool_use"
+				) as Anthropic.Messages.ToolUseBlock[]
 
-						modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1) // removes the last user message
-						modifiedOldUserContent = [...existingUserContent, ...missingToolResponses]
-					} else {
-						modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
-						modifiedOldUserContent = [...existingUserContent]
-					}
+				if (toolUseBlocks.length > 0) {
+					const existingToolResults = existingUserContent.filter(
+						(block) => block.type === "tool_result"
+					) as Anthropic.ToolResultBlockParam[]
+
+					const missingToolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks
+						.filter(
+							(toolUse) => !existingToolResults.some((result) => result.tool_use_id === toolUse.id)
+						)
+						.map((toolUse) => ({
+							type: "tool_result",
+							tool_use_id: toolUse.id,
+							content: "Task was interrupted before this tool call could be completed.",
+						}))
+
+					modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1) // removes the last user message
+					modifiedOldUserContent = [...existingUserContent, ...missingToolResponses]
 				} else {
 					modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
 					modifiedOldUserContent = [...existingUserContent]
 				}
 			} else {
-				throw new Error("Unexpected: Last message is not a user or assistant message")
+				modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
+				modifiedOldUserContent = [...existingUserContent]
 			}
 		} else {
-			throw new Error("Unexpected: No existing API conversation history")
+			throw new Error("Unexpected: Last message is not a user or assistant message")
 		}
 
 		let newUserContent: UserContent = [...modifiedOldUserContent]
 
-		const agoText = (() => {
-			const timestamp = lastClineMessage?.ts ?? Date.now()
-			const now = Date.now()
-			const diff = now - timestamp
-			const minutes = Math.floor(diff / 60000)
-			const hours = Math.floor(minutes / 60)
-			const days = Math.floor(hours / 24)
-
-			if (days > 0) {
-				return `${days} day${days > 1 ? "s" : ""} ago`
-			}
-			if (hours > 0) {
-				return `${hours} hour${hours > 1 ? "s" : ""} ago`
-			}
-			if (minutes > 0) {
-				return `${minutes} minute${minutes > 1 ? "s" : ""} ago`
-			}
-			return "just now"
-		})()
-
+		const agoText = timeAgoDescription(lastClineMessage?.ts ?? Date.now())
 		const wasRecent = lastClineMessage?.ts && Date.now() - lastClineMessage.ts < 30_000
 
 		newUserContent.push({
@@ -633,10 +597,12 @@ export class Cline {
 			const didEndLoop = await this.recursivelyMakeClineRequests(nextUserContent, includeFileDetails)
 			includeFileDetails = false // we only need file details the first time
 
-			//  The way this agentic loop works is that cline will be given a task that he then calls tools to complete. unless there's an attempt_completion call, we keep responding back to him with his tool's responses until he either attempt_completion or does not use anymore tools. If he does not use anymore tools, we ask him to consider if he's completed the task and then call attempt_completion, otherwise proceed with completing the task.
+			//  The way this agentic loop works is that cline will be given a task that he then calls tools to complete.
+			// unless there's an attempt_completion call, we keep responding back to him with his tool's responses until
+			// he either attempt_completion or does not use anymore tools. If he does not use anymore tools,
+			// we ask him to consider if he's completed the task and then call attempt_completion, otherwise proceed with completing the task.
 			// There is a MAX_REQUESTS_PER_TASK limit to prevent infinite requests, but Cline is prompted to finish the task as efficiently as he can.
-
-			//const totalCost = this.calculateApiCost(totalInputTokens, totalOutputTokens)
+			// const totalCost = this.calculateApiCost(totalInputTokens, totalOutputTokens)
 			if (didEndLoop) {
 				// For now a task never 'completes'. This will only happen if the user hits max requests and denies resetting the count.
 				//this.say("task_completed", `Task completed. Total API usage cost: ${totalCost}`)
@@ -842,13 +808,6 @@ export class Cline {
 				}
 			}
 		}
-
-		// details += "\n\n# VSCode Workspace Errors"
-		// if (diagnosticsDetails) {
-		// 	details += diagnosticsDetails
-		// } else {
-		// 	details += "\n(No errors detected)"
-		// }
 
 		if (terminalDetails) {
 			details += terminalDetails
@@ -1390,7 +1349,7 @@ export class Cline {
 	}
 
 	async handleToolUseBlock(block: ToolUse) {
-		const toolDescription = () => {
+		const getToolDescription = (block: ToolUse) => {
 			switch (block.name) {
 				case "execute_command":
 					return `[${block.name} for '${block.params.command}']`
@@ -1419,13 +1378,13 @@ export class Cline {
 			if (!block.partial) {
 				this.userMessageContent.push({
 					type: "text",
-					text: `Skipping tool ${toolDescription()} due to user rejecting a previous tool.`,
+					text: `Skipping tool ${getToolDescription(block)} due to user rejecting a previous tool.`,
 				})
 			} else {
 				// partial tool after user rejected a previous tool
 				this.userMessageContent.push({
 					type: "text",
-					text: `Tool ${toolDescription()} was interrupted and not executed due to user rejecting a previous tool.`,
+					text: `Tool ${getToolDescription(block)} was interrupted and not executed due to user rejecting a previous tool.`,
 				})
 			}
 			return
@@ -1434,7 +1393,7 @@ export class Cline {
 		const pushToolResult = (content: ToolResponse) => {
 			this.userMessageContent.push({
 				type: "text",
-				text: `${toolDescription()} Result:`,
+				text: `$getToolDescription(block)} Result:`,
 			})
 			if (typeof content === "string") {
 				this.userMessageContent.push({
@@ -1558,84 +1517,81 @@ export class Cline {
 					// editor is open, stream content in
 					await this.diffViewProvider.update(newContent, false)
 					return
-				} else {
-					if (!relPath) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("write_to_file", "path"))
-						await this.diffViewProvider.reset()
-						return
-					}
-					if (!newContent) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("write_to_file", "content"))
-						await this.diffViewProvider.reset()
-						return
-					}
-					this.consecutiveMistakeCount = 0
-
-					// if isEditingFile false, that means we have the full contents of the file already.
-					// it's important to note how this function works,
-					// you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data.
-					// So this part of the logic will always be called.
-					// in other words, you must always repeat the block.partial logic here
-					if (!this.diffViewProvider.isEditing) {
-						// show gui message before showing edit animation
-						const partialMessage = JSON.stringify(sharedMessageProps)
-						// sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
-						await this.ask("tool", partialMessage, true).catch(() => { })
-						await this.diffViewProvider.open(relPath)
-					}
-					await this.diffViewProvider.update(newContent, true)
-					await delay(300) // wait for diff view to update
-					this.diffViewProvider.scrollToFirstDiff()
-					showOmissionWarning(this.diffViewProvider.originalContent || "", newContent)
-
-					const completeMessage = JSON.stringify({
-						...sharedMessageProps,
-						content: fileExists ? undefined : newContent,
-						diff: fileExists
-							? formatResponse.createPrettyPatch(
-								relPath,
-								this.diffViewProvider.originalContent,
-								newContent
-							)
-							: undefined,
-					} satisfies ClineSayTool)
-					const didApprove = await askApproval("tool", completeMessage)
-					if (!didApprove) {
-						await this.diffViewProvider.revertChanges()
-						return
-					}
-					const { newProblemsMessage, userEdits, finalContent } =
-						await this.diffViewProvider.saveChanges()
-					this.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
-					if (userEdits) {
-						await this.say(
-							"user_feedback_diff",
-							JSON.stringify({
-								tool: fileExists ? "editedExistingFile" : "newFileCreated",
-								path: getReadablePath(this.cwd, relPath),
-								diff: userEdits,
-							} satisfies ClineSayTool)
-						)
-						pushToolResult(
-							`The user made the following updates to your content:\n\n${userEdits}\n\n` +
-							`The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
-							`<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
-							`Please note:\n` +
-							`1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
-							`2. Proceed with the task using this updated file content as the new baseline.\n` +
-							`3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
-							`${newProblemsMessage}`
-						)
-					} else {
-						pushToolResult(
-							`The content was successfully saved to ${relPath.toPosix()}.${newProblemsMessage}`
-						)
-					}
+				}
+				if (!relPath) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("write_to_file", "path"))
 					await this.diffViewProvider.reset()
 					return
 				}
+				if (!newContent) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("write_to_file", "content"))
+					await this.diffViewProvider.reset()
+					return
+				}
+				this.consecutiveMistakeCount = 0
+
+				// if isEditingFile false, that means we have the full contents of the file already.
+				// it's important to note how this function works,
+				// you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data.
+				// So this part of the logic will always be called.
+				// in other words, you must always repeat the block.partial logic here
+				if (!this.diffViewProvider.isEditing) {
+					// show gui message before showing edit animation
+					const partialMessage = JSON.stringify(sharedMessageProps)
+					// sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
+					await this.ask("tool", partialMessage, true).catch(() => { })
+					await this.diffViewProvider.open(relPath)
+				}
+				await this.diffViewProvider.update(newContent, true)
+				await delay(300) // wait for diff view to update
+				this.diffViewProvider.scrollToFirstDiff()
+				showOmissionWarning(this.diffViewProvider.originalContent || "", newContent)
+
+				const completeMessage = JSON.stringify({
+					...sharedMessageProps,
+					content: fileExists ? undefined : newContent,
+					diff: fileExists
+						? formatResponse.createPrettyPatch(
+							relPath,
+							this.diffViewProvider.originalContent,
+							newContent
+						)
+						: undefined,
+				} satisfies ClineSayTool)
+				const didApprove = await askApproval("tool", completeMessage)
+				if (!didApprove) {
+					await this.diffViewProvider.revertChanges()
+					return
+				}
+				const { newProblemsMessage, userEdits, finalContent } = await this.diffViewProvider.saveChanges()
+				this.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
+				if (!userEdits) {
+					pushToolResult(`The content was successfully saved to ${relPath.toPosix()}.${newProblemsMessage}`)
+					await this.diffViewProvider.reset()
+					return
+				}
+
+				const userFeedbackDiff = JSON.stringify({
+					tool: fileExists ? "editedExistingFile" : "newFileCreated",
+					path: getReadablePath(this.cwd, relPath),
+					diff: userEdits,
+				} satisfies ClineSayTool)
+				await this.say("user_feedback_diff", userFeedbackDiff)
+				pushToolResult(
+					`The user made the following updates to your content:\n\n${userEdits}\n\n` +
+					`The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
+					`<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
+					`Please note:\n` +
+					`1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
+					`2. Proceed with the task using this updated file content as the new baseline.\n` +
+					`3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
+					`${newProblemsMessage}`
+				)
+				await this.diffViewProvider.reset()
+				return
+
 			} catch (error) {
 				await handleError("writing file", error)
 				await this.diffViewProvider.reset()
@@ -1661,34 +1617,34 @@ export class Cline {
 						await this.ask("tool", partialMessage, block.partial).catch(() => { })
 					}
 					return
-				} else {
-					if (!relPath) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("read_file", "path"))
-						return
-					}
-					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(this.cwd, relPath)
-					const completeMessage = JSON.stringify({
-						...sharedMessageProps,
-						content: absolutePath,
-					} satisfies ClineSayTool)
-					if (this.alwaysAllowReadOnly) {
-						// need to be sending partialValue bool
-						// since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
-						// but as a single complete message
-						await this.say("tool", completeMessage, undefined, false)
-					} else {
-						const didApprove = await askApproval("tool", completeMessage)
-						if (!didApprove) {
-							return
-						}
-					}
-					// now execute the tool like normal
-					const content = await extractTextFromFile(absolutePath)
-					pushToolResult(content)
+				}
+				if (!relPath) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("read_file", "path"))
 					return
 				}
+				this.consecutiveMistakeCount = 0
+				const absolutePath = path.resolve(this.cwd, relPath)
+				const completeMessage = JSON.stringify({
+					...sharedMessageProps,
+					content: absolutePath,
+				} satisfies ClineSayTool)
+				if (this.alwaysAllowReadOnly) {
+					// need to be sending partialValue bool
+					// since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
+					// but as a single complete message
+					await this.say("tool", completeMessage, undefined, false)
+				} else {
+					const didApprove = await askApproval("tool", completeMessage)
+					if (!didApprove) {
+						return
+					}
+				}
+				// now execute the tool like normal
+				const content = await extractTextFromFile(absolutePath)
+				pushToolResult(content)
+				return
+
 			} catch (error) {
 				await handleError("reading file", error)
 				return
@@ -1715,31 +1671,31 @@ export class Cline {
 						await this.ask("tool", partialMessage, block.partial).catch(() => { })
 					}
 					return
-				} else {
-					if (!relDirPath) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("list_files", "path"))
-						return
-					}
-					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(this.cwd, relDirPath)
-					const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
-					const result = formatResponse.formatFilesList(absolutePath, files, didHitLimit)
-					const completeMessage = JSON.stringify({
-						...sharedMessageProps,
-						content: result,
-					} satisfies ClineSayTool)
-					if (this.alwaysAllowReadOnly) {
-						await this.say("tool", completeMessage, undefined, false)
-					} else {
-						const didApprove = await askApproval("tool", completeMessage)
-						if (!didApprove) {
-							return
-						}
-					}
-					pushToolResult(result)
+				}
+				if (!relDirPath) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("list_files", "path"))
 					return
 				}
+				this.consecutiveMistakeCount = 0
+				const absolutePath = path.resolve(this.cwd, relDirPath)
+				const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
+				const result = formatResponse.formatFilesList(absolutePath, files, didHitLimit)
+				const completeMessage = JSON.stringify({
+					...sharedMessageProps,
+					content: result,
+				} satisfies ClineSayTool)
+				if (this.alwaysAllowReadOnly) {
+					await this.say("tool", completeMessage, undefined, false)
+				} else {
+					const didApprove = await askApproval("tool", completeMessage)
+					if (!didApprove) {
+						return
+					}
+				}
+				pushToolResult(result)
+				return
+
 			} catch (error) {
 				await handleError("listing files", error)
 				return
@@ -1764,32 +1720,32 @@ export class Cline {
 						await this.ask("tool", partialMessage, block.partial).catch(() => { })
 					}
 					return
-				} else {
-					if (!relDirPath) {
-						this.consecutiveMistakeCount++
-						pushToolResult(
-							await this.sayAndCreateMissingParamError("list_code_definition_names", "path")
-						)
-						return
-					}
-					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(this.cwd, relDirPath)
-					const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
-					const completeMessage = JSON.stringify({
-						...sharedMessageProps,
-						content: result,
-					} satisfies ClineSayTool)
-					if (this.alwaysAllowReadOnly) {
-						await this.say("tool", completeMessage, undefined, false)
-					} else {
-						const didApprove = await askApproval("tool", completeMessage)
-						if (!didApprove) {
-							return
-						}
-					}
-					pushToolResult(result)
+				}
+				if (!relDirPath) {
+					this.consecutiveMistakeCount++
+					pushToolResult(
+						await this.sayAndCreateMissingParamError("list_code_definition_names", "path")
+					)
 					return
 				}
+				this.consecutiveMistakeCount = 0
+				const absolutePath = path.resolve(this.cwd, relDirPath)
+				const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
+				const completeMessage = JSON.stringify({
+					...sharedMessageProps,
+					content: result,
+				} satisfies ClineSayTool)
+				if (this.alwaysAllowReadOnly) {
+					await this.say("tool", completeMessage, undefined, false)
+				} else {
+					const didApprove = await askApproval("tool", completeMessage)
+					if (!didApprove) {
+						return
+					}
+				}
+				pushToolResult(result)
+				return
+
 			} catch (error) {
 				await handleError("parsing source code definitions", error)
 				return
@@ -1818,35 +1774,35 @@ export class Cline {
 						await this.ask("tool", partialMessage, block.partial).catch(() => { })
 					}
 					return
-				} else {
-					if (!relDirPath) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("search_files", "path"))
-						return
-					}
-					if (!regex) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("search_files", "regex"))
-						return
-					}
-					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(this.cwd, relDirPath)
-					const results = await regexSearchFiles(this.cwd, absolutePath, regex, filePattern)
-					const completeMessage = JSON.stringify({
-						...sharedMessageProps,
-						content: results,
-					} satisfies ClineSayTool)
-					if (this.alwaysAllowReadOnly) {
-						await this.say("tool", completeMessage, undefined, false)
-					} else {
-						const didApprove = await askApproval("tool", completeMessage)
-						if (!didApprove) {
-							return
-						}
-					}
-					pushToolResult(results)
+				}
+				if (!relDirPath) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("search_files", "path"))
 					return
 				}
+				if (!regex) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("search_files", "regex"))
+					return
+				}
+				this.consecutiveMistakeCount = 0
+				const absolutePath = path.resolve(this.cwd, relDirPath)
+				const results = await regexSearchFiles(this.cwd, absolutePath, regex, filePattern)
+				const completeMessage = JSON.stringify({
+					...sharedMessageProps,
+					content: results,
+				} satisfies ClineSayTool)
+				if (this.alwaysAllowReadOnly) {
+					await this.say("tool", completeMessage, undefined, false)
+				} else {
+					const didApprove = await askApproval("tool", completeMessage)
+					if (!didApprove) {
+						return
+					}
+				}
+				pushToolResult(results)
+				return
+
 			} catch (error) {
 				await handleError("searching files", error)
 				return
@@ -1868,51 +1824,50 @@ export class Cline {
 						await this.ask("tool", partialMessage, block.partial).catch(() => { })
 					}
 					return
-				} else {
-					if (!url) {
-						this.consecutiveMistakeCount++
-						pushToolResult(await this.sayAndCreateMissingParamError("inspect_site", "url"))
-						return
-					}
-					this.consecutiveMistakeCount = 0
-					const completeMessage = JSON.stringify(sharedMessageProps)
-					if (this.alwaysAllowReadOnly) {
-						await this.say("tool", completeMessage, undefined, false)
-					} else {
-						const didApprove = await askApproval("tool", completeMessage)
-						if (!didApprove) {
-							return
-						}
-					}
-
-					// execute tool
-					// NOTE: it's okay that we call this message since the partial inspect_site is finished streaming.
-					// The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array.
-					// For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
-					// no result, starts the loading spinner waiting for result
-					await this.say("inspect_site_result", "")
-					await this.urlContentFetcher.launchBrowser()
-					let result: {
-						screenshot: string
-						logs: string
-					}
-					try {
-						result = await this.urlContentFetcher.urlToScreenshotAndLogs(url)
-					} finally {
-						await this.urlContentFetcher.closeBrowser()
-					}
-					const { screenshot, logs } = result
-					await this.say("inspect_site_result", logs, [screenshot])
-
-					pushToolResult(
-						formatResponse.toolResult(
-							`The site has been visited, with console logs captured and a screenshot taken for your analysis.\n\nConsole logs:\n${logs || "(No logs)"
-							}`,
-							[screenshot]
-						)
-					)
+				}
+				if (!url) {
+					this.consecutiveMistakeCount++
+					pushToolResult(await this.sayAndCreateMissingParamError("inspect_site", "url"))
 					return
 				}
+				this.consecutiveMistakeCount = 0
+				const completeMessage = JSON.stringify(sharedMessageProps)
+				if (this.alwaysAllowReadOnly) {
+					await this.say("tool", completeMessage, undefined, false)
+				} else {
+					const didApprove = await askApproval("tool", completeMessage)
+					if (!didApprove) {
+						return
+					}
+				}
+
+				// execute tool
+				// NOTE: it's okay that we call this message since the partial inspect_site is finished streaming.
+				// The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array.
+				// For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
+				// no result, starts the loading spinner waiting for result
+				await this.say("inspect_site_result", "")
+				await this.urlContentFetcher.launchBrowser()
+				let result: {
+					screenshot: string
+					logs: string
+				}
+				try {
+					result = await this.urlContentFetcher.urlToScreenshotAndLogs(url)
+				} finally {
+					await this.urlContentFetcher.closeBrowser()
+				}
+				const { screenshot, logs } = result
+				await this.say("inspect_site_result", logs, [screenshot])
+
+				pushToolResult(
+					formatResponse.toolResult(
+						`The site has been visited, with console logs captured and a screenshot taken for your analysis.\n\nConsole logs:\n${logs || "(No logs)"
+						}`,
+						[screenshot]
+					)
+				)
+				return
 			} catch (error) {
 				await handleError("inspecting site", error)
 				return
@@ -2016,69 +1971,69 @@ export class Cline {
 						)
 					}
 					return
-				} else {
-					if (!result) {
-						this.consecutiveMistakeCount++
-						pushToolResult(
-							await this.sayAndCreateMissingParamError("attempt_completion", "result")
-						)
-						return
-					}
-					this.consecutiveMistakeCount = 0
+				}
+				if (!result) {
+					this.consecutiveMistakeCount++
+					pushToolResult(
+						await this.sayAndCreateMissingParamError("attempt_completion", "result")
+					)
+					return
+				}
+				this.consecutiveMistakeCount = 0
 
-					let commandResult: ToolResponse | undefined
-					if (command) {
-						if (lastMessage && lastMessage.ask !== "command") {
-							// havent sent a command message yet so first send completion_result then command
-							await this.say("completion_result", result, undefined, false)
-						}
-
-						// complete command message
-						const didApprove = await askApproval("command", command)
-						if (!didApprove) {
-							return
-						}
-						const [userRejected, execCommandResult] = await this.executeCommand(command!)
-						if (userRejected) {
-							this.didRejectTool = true
-							pushToolResult(execCommandResult)
-							return
-						}
-						// user didn't reject, but the command may have output
-						commandResult = execCommandResult
-					} else {
+				let commandResult: ToolResponse | undefined
+				if (command) {
+					if (lastMessage && lastMessage.ask !== "command") {
+						// havent sent a command message yet so first send completion_result then command
 						await this.say("completion_result", result, undefined, false)
 					}
 
-					// we already sent completion_result says, an empty string asks relinquishes control over button and field
-					const { response, text, images } = await this.ask("completion_result", "", false)
-					if (response === "yesButtonClicked") {
-						pushToolResult("") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
+					// complete command message
+					const didApprove = await askApproval("command", command)
+					if (!didApprove) {
 						return
 					}
-					await this.say("user_feedback", text ?? "", images)
-
-					const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
-					if (commandResult) {
-						if (typeof commandResult === "string") {
-							toolResults.push({ type: "text", text: commandResult })
-						} else if (Array.isArray(commandResult)) {
-							toolResults.push(...commandResult)
-						}
+					const [userRejected, execCommandResult] = await this.executeCommand(command!)
+					if (userRejected) {
+						this.didRejectTool = true
+						pushToolResult(execCommandResult)
+						return
 					}
-					toolResults.push({
-						type: "text",
-						text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
-					})
-					toolResults.push(...formatResponse.imageBlocks(images))
-					this.userMessageContent.push({
-						type: "text",
-						text: `${toolDescription()} Result:`,
-					})
-					this.userMessageContent.push(...toolResults)
+					// user didn't reject, but the command may have output
+					commandResult = execCommandResult
+				} else {
+					await this.say("completion_result", result, undefined, false)
+				}
 
+				// we already sent completion_result says, an empty string asks relinquishes control over button and field
+				const { response, text, images } = await this.ask("completion_result", "", false)
+				if (response === "yesButtonClicked") {
+					pushToolResult("") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
 					return
 				}
+				await this.say("user_feedback", text ?? "", images)
+
+				const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
+				if (commandResult) {
+					if (typeof commandResult === "string") {
+						toolResults.push({ type: "text", text: commandResult })
+					} else if (Array.isArray(commandResult)) {
+						toolResults.push(...commandResult)
+					}
+				}
+				toolResults.push({
+					type: "text",
+					text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
+				})
+				toolResults.push(...formatResponse.imageBlocks(images))
+				this.userMessageContent.push({
+					type: "text",
+					text: `$getToolDescription(block)} Result:`,
+				})
+				this.userMessageContent.push(...toolResults)
+
+				return
+
 			} catch (error) {
 				await handleError("inspecting site", error)
 				return
@@ -2093,20 +2048,19 @@ export class Cline {
 						() => { }
 					)
 					return
-				} else {
-					if (!question) {
-						this.consecutiveMistakeCount++
-						pushToolResult(
-							await this.sayAndCreateMissingParamError("ask_followup_question", "question")
-						)
-						return
-					}
-					this.consecutiveMistakeCount = 0
-					const { text, images } = await this.ask("followup", question, false)
-					await this.say("user_feedback", text ?? "", images)
-					pushToolResult(formatResponse.toolResult(`<answer>\n${text}\n</answer>`, images))
+				}
+				if (!question) {
+					this.consecutiveMistakeCount++
+					const missingParamError = await this.sayAndCreateMissingParamError("ask_followup_question", "question")
+					pushToolResult(missingParamError)
 					return
 				}
+				this.consecutiveMistakeCount = 0
+				const { text, images } = await this.ask("followup", question, false)
+				await this.say("user_feedback", text ?? "", images)
+				pushToolResult(formatResponse.toolResult(`<answer>\n${text}\n</answer>`, images))
+				return
+
 			} catch (error) {
 				await handleError("asking question", error)
 				return

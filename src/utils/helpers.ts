@@ -33,3 +33,26 @@ export function getNonce() {
 export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
   return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList))
 }
+
+
+export function timeAgoDescription(ref?: number | null): string {
+  // const timestamp = lastClineMessage?.ts ?? Date.now()
+  const timestamp = ref ?? Date.now()
+  const now = Date.now()
+  const diff = now - timestamp
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (days > 0) {
+    return `${days} day${days > 1 ? "s" : ""} ago`
+  }
+  if (hours > 0) {
+    return `${hours} hour${hours > 1 ? "s" : ""} ago`
+  }
+  if (minutes > 0) {
+    return `${minutes} minute${minutes > 1 ? "s" : ""} ago`
+  }
+  return "just now"
+
+}
