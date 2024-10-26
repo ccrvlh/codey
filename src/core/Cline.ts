@@ -61,15 +61,15 @@ export class Cline {
 	readonly taskId: string
 	private terminalManager: TerminalManager
 	private urlContentFetcher: UrlContentFetcher
-	private didEditFile: boolean = false
 	private askResponse?: ClineAskResponse
 	private askResponseText?: string
 	private askResponseImages?: string[]
 	private lastMessageTs?: number
-	private consecutiveMistakeCount: number = 0
 	private providerRef: WeakRef<ClineProvider>
-	private abort: boolean = false
 	private diffViewProvider: DiffViewProvider
+	private didEditFile: boolean = false
+	private abort: boolean = false
+	private consecutiveMistakeCount: number = 0
 
 	// streaming
 	private currentStreamingContentIndex = 0
@@ -142,16 +142,18 @@ export class Cline {
 
 	private async saveApiConversationHistory() {
 		try {
-			const filePath = path.join(await this.ensureTaskDirectoryExists(), GlobalFileNames.apiConversationHistory)
-			await fs.writeFile(filePath, JSON.stringify(this.apiConversationHistory))
+			const dir = await this.ensureTaskDirectoryExists()
+			const filePath = path.join(dir, GlobalFileNames.apiConversationHistory)
+			const content = JSON.stringify(this.apiConversationHistory)
+			await fs.writeFile(filePath, content)
 		} catch (error) {
-			// in the off chance this fails, we don't want to stop the task
 			console.error("Failed to save API conversation history:", error)
 		}
 	}
 
 	private async getSavedClineMessages(): Promise<ClineMessage[]> {
-		const filePath = path.join(await this.ensureTaskDirectoryExists(), GlobalFileNames.uiMessages)
+		const dir = await this.ensureTaskDirectoryExists()
+		const filePath = path.join(dir, GlobalFileNames.uiMessages)
 		if (await fileExistsAtPath(filePath)) {
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
 		} else {
@@ -178,7 +180,8 @@ export class Cline {
 
 	private async saveClineMessages() {
 		try {
-			const filePath = path.join(await this.ensureTaskDirectoryExists(), GlobalFileNames.uiMessages)
+			const dir = await this.ensureTaskDirectoryExists()
+			const filePath = path.join(dir, GlobalFileNames.uiMessages)
 			await fs.writeFile(filePath, JSON.stringify(this.clineMessages))
 			// combined as they are in ChatView
 			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
@@ -294,7 +297,9 @@ export class Cline {
 
 		await pWaitFor(() => this.askResponse !== undefined || this.lastMessageTs !== askTs, { interval: 100 })
 		if (this.lastMessageTs !== askTs) {
-			throw new Error("Current ask promise was ignored") // could happen if we send multiple asks in a row i.e. with command_output. It's important that when we know an ask could fail, it is handled gracefully
+			// could happen if we send multiple asks in a row i.e. with command_output.
+			// It's important that when we know an ask could fail, it is handled gracefully
+			throw new Error("Current ask promise was ignored")
 		}
 		const result = { response: this.askResponse!, text: this.askResponseText, images: this.askResponseImages }
 		this.askResponse = undefined
@@ -915,11 +920,13 @@ export class Cline {
 	async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
 		let systemPrompt = await SYSTEM_PROMPT(cwd, this.api.getModel().info.supportsImages ?? false)
 		if (this.customInstructions && this.customInstructions.trim()) {
-			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
+			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often
+			// so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
 			systemPrompt += addCustomInstructions(this.customInstructions)
 		}
 
-		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request
+		// If the previous API request's total token usage is close to the context window,
+		// truncate the conversation history to free up space for the new request
 		if (previousApiReqIndex >= 0) {
 			const previousRequest = this.clineMessages[previousApiReqIndex]
 			if (previousRequest && previousRequest.text) {
@@ -944,7 +951,10 @@ export class Cline {
 			const firstChunk = await iterator.next()
 			yield firstChunk.value
 		} catch (error) {
-			// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet (ie it fails on the first chunk due), as it would allow them to hit a retry button. However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed, so that error is handled differently and requires cancelling the task entirely.
+			// note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet
+			// (ie it fails on the first chunk due), as it would allow them to hit a retry button.
+			// However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed,
+			// so that error is handled differently and requires cancelling the task entirely.
 			const { response } = await this.ask(
 				"api_req_failed",
 				error.message ?? JSON.stringify(serializeError(error), null, 2)
@@ -960,8 +970,11 @@ export class Cline {
 		}
 
 		// no error, so we can continue to yield all remaining chunks
-		// (needs to be placed outside of try/catch since it we want caller to handle errors not with api_req_failed as that is reserved for first chunk failures only)
-		// this delegates to another generator or iterable object. In this case, it's saying "yield all remaining values from this iterator". This effectively passes along all subsequent chunks from the original stream.
+		// (needs to be placed outside of try/catch since it we want caller to handle errors not with api_req_failed
+		// as that is reserved for first chunk failures only)
+		// this delegates to another generator or iterable object.
+		// In this case, it's saying "yield all remaining values from this iterator".
+		// This effectively passes along all subsequent chunks from the original stream.
 		yield* iterator
 	}
 
@@ -997,7 +1010,8 @@ export class Cline {
 		// get previous api req's index to check token usage and determine if we need to truncate conversation history
 		const previousApiReqIndex = findLastIndex(this.clineMessages, (m) => m.say === "api_req_started")
 
-		// getting verbose details is an expensive operation, it uses globby to top-down build file structure of project which for large projects can take a few seconds
+		// getting verbose details is an expensive operation, it uses globby to top-down build file structure of project
+		// which for large projects can take a few seconds
 		// for the best UX we show a placeholder api_req_started message with a loading spinner as this happens
 		await this.say(
 			"api_req_started",
@@ -1244,10 +1258,14 @@ export class Cline {
 					content: [{ type: "text", text: "Failure: I did not provide a response." }],
 				})
 			}
-
-			return didEndLoop // will always be false for now
+			// will always be false for now
+			return didEndLoop
 		} catch (error) {
-			// this should never happen since the only thing that can throw an error is the attemptApiRequest, which is wrapped in a try catch that sends an ask where if noButtonClicked, will clear current task and destroy this instance. However to avoid unhandled promise rejection, we will end this loop which will end execution of this instance (see startTask)
+			// this should never happen since the only thing that can throw an error is the attemptApiRequest,
+			// which is wrapped in a try catch that sends an ask where if noButtonClicked,
+			// will clear current task and destroy this instance.
+			// However to avoid unhandled promise rejection,
+			// we will end this loop which will end execution of this instance (see startTask)
 			return true // needs to be true so parent loop knows to end task
 		}
 	}
@@ -1302,7 +1320,10 @@ export class Cline {
 		if (!block.partial || this.didRejectTool) {
 			// block is finished streaming and executing
 			if (this.currentStreamingContentIndex === this.assistantMessageContent.length - 1) {
-				// its okay that we increment if !didCompleteReadingStream, it'll just return bc out of bounds and as streaming continues it will call presentAssitantMessage if a new block is ready. if streaming is finished then we set userMessageContentReady to true when out of bounds. This gracefully allows the stream to continue on and all potential content blocks be presented.
+				// its okay that we increment if !didCompleteReadingStream, it'll just return
+				// bc out of bounds and as streaming continues it will call presentAssitantMessage if a new block is ready.
+				// if streaming is finished then we set userMessageContentReady to true when out of bounds.
+				// This gracefully allows the stream to continue on and all potential content blocks be presented.
 				// last block is complete and it is finished executing
 				this.userMessageContentReady = true // will allow pwaitfor to continue
 			}
@@ -1475,7 +1496,8 @@ export class Cline {
 		}
 
 		const cleanUpContent = (content: string): string => {
-			// pre-processing newContent for cases where weaker models might add artifacts like markdown codeblock markers (deepseek/llama) or extra escape characters (gemini)
+			// pre-processing newContent for cases where weaker models might add artifacts like markdown codeblock markers
+			// (deepseek/llama) or extra escape characters (gemini)
 			if (content.startsWith("```")) {
 				// this handles cases where it includes language specifiers like ```python ```js
 				content = content.split("\n").slice(1).join("\n").trim()
@@ -1553,12 +1575,15 @@ export class Cline {
 					this.consecutiveMistakeCount = 0
 
 					// if isEditingFile false, that means we have the full contents of the file already.
-					// it's important to note how this function works, you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data. So this part of the logic will always be called.
+					// it's important to note how this function works,
+					// you can't make the assumption that the block.partial conditional will always be called since it may immediately get complete, non-partial data.
+					// So this part of the logic will always be called.
 					// in other words, you must always repeat the block.partial logic here
 					if (!this.diffViewProvider.isEditing) {
 						// show gui message before showing edit animation
 						const partialMessage = JSON.stringify(sharedMessageProps)
-						await this.ask("tool", partialMessage, true).catch(() => { }) // sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
+						// sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
+						await this.ask("tool", partialMessage, true).catch(() => { })
 						await this.diffViewProvider.open(relPath)
 					}
 					await this.diffViewProvider.update(newContent, true)
@@ -1650,7 +1675,10 @@ export class Cline {
 						content: absolutePath,
 					} satisfies ClineSayTool)
 					if (this.alwaysAllowReadOnly) {
-						await this.say("tool", completeMessage, undefined, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
+						// need to be sending partialValue bool
+						// since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
+						// but as a single complete message
+						await this.say("tool", completeMessage, undefined, false)
 					} else {
 						const didApprove = await askApproval("tool", completeMessage)
 						if (!didApprove) {
@@ -1859,8 +1887,11 @@ export class Cline {
 					}
 
 					// execute tool
-					// NOTE: it's okay that we call this message since the partial inspect_site is finished streaming. The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array. For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
-					await this.say("inspect_site_result", "") // no result, starts the loading spinner waiting for result
+					// NOTE: it's okay that we call this message since the partial inspect_site is finished streaming.
+					// The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array.
+					// For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
+					// no result, starts the loading spinner waiting for result
+					await this.say("inspect_site_result", "")
 					await this.urlContentFetcher.launchBrowser()
 					let result: {
 						screenshot: string
