@@ -156,15 +156,15 @@ export class Cline {
 		const filePath = path.join(dir, GlobalFileNames.uiMessages)
 		if (await fileExistsAtPath(filePath)) {
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
-		} else {
-			// check old location
-			const oldPath = path.join(await this.ensureTaskDirectoryExists(), "claude_messages.json")
-			if (await fileExistsAtPath(oldPath)) {
-				const data = JSON.parse(await fs.readFile(oldPath, "utf8"))
-				await fs.unlink(oldPath) // remove old file
-				return data
-			}
 		}
+		// check old location
+		const oldPath = path.join(await this.ensureTaskDirectoryExists(), "claude_messages.json")
+		if (await fileExistsAtPath(oldPath)) {
+			const data = JSON.parse(await fs.readFile(oldPath, "utf8"))
+			await fs.unlink(oldPath) // remove old file
+			return data
+		}
+
 		return []
 	}
 
@@ -474,7 +474,8 @@ export class Cline {
 							type: "text",
 							text: `<${block.name}>\n${inputAsXml}\n</${block.name}>`,
 						} as Anthropic.Messages.TextBlockParam
-					} else if (block.type === "tool_result") {
+					}
+					if (block.type === "tool_result") {
 						// Convert block.content to text block array, removing images
 						const contentAsTextBlocks = Array.isArray(block.content)
 							? block.content.filter((item) => item.type === "text")
@@ -695,15 +696,15 @@ export class Cline {
 			]
 		}
 
-		if (completed) {
-			return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ""}`]
-		} else {
+		if (!completed) {
 			return [
 				false,
 				`Command is still running in the user's terminal.${result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
 				}\n\nYou will be updated on the terminal status and new output in the future.`,
 			]
 		}
+
+		return [false, `Command executed.${result.length > 0 ? `\nOutput:\n${result}` : ""}`]
 	}
 
 	async getEnvironmentDetails(includeFileDetails: boolean = false) {
@@ -1407,20 +1408,21 @@ export class Cline {
 
 		const askApproval = async (type: ClineAsk, partialMessage?: string) => {
 			const { response, text, images } = await this.ask(type, partialMessage, false)
-			if (response !== "yesButtonClicked") {
-				if (response === "messageResponse") {
-					await this.say("user_feedback", text, images)
-					pushToolResult(
-						formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(text), images)
-					)
-					this.didRejectTool = true
-					return false
-				}
-				pushToolResult(formatResponse.toolDenied())
+			if (response == "yesButtonClicked") {
+				return true
+			}
+			if (response === "messageResponse") {
+				await this.say("user_feedback", text, images)
+				pushToolResult(
+					formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(text), images)
+				)
 				this.didRejectTool = true
 				return false
 			}
-			return true
+			pushToolResult(formatResponse.toolDenied())
+			this.didRejectTool = true
+			return false
+
 		}
 
 		const handleError = async (action: string, error: Error) => {
@@ -1909,26 +1911,6 @@ export class Cline {
 		}
 
 		const attemptCompletionTool = async (block: ToolUse) => {
-			/*
-				this.consecutiveMistakeCount = 0
-				let resultToSend = result
-				if (command) {
-					await this.say("completion_result", resultToSend)
-					// TODO: currently we don't handle if this command fails, it could be useful to let cline know and retry
-					const [didUserReject, commandResult] = await this.executeCommand(command, true)
-					// if we received non-empty string, the command was rejected or failed
-					if (commandResult) {
-						return [didUserReject, commandResult]
-					}
-					resultToSend = ""
-				}
-				const { response, text, images } = await this.ask("completion_result", resultToSend) // this prompts webview to show 'new task' button, and enable text input (which would be the 'text' here)
-				if (response === "yesButtonClicked") {
-					return [false, ""] // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
-				}
-				await this.say("user_feedback", text ?? "", images)
-				return [
-				*/
 			const result: string | undefined = block.params.result
 			const command: string | undefined = block.params.command
 			try {
