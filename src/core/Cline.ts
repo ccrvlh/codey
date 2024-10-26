@@ -986,8 +986,8 @@ export class Cline {
 			pushToolResult(formatResponse.toolError(errorString))
 		}
 
-		// If block is partial, remove partial closing tag so its not presented to user
 		const removeClosingTag = (tag: ToolParamName, text?: string) => {
+			// If block is partial, remove partial closing tag so its not presented to user
 			if (!block.partial) {
 				return text || ""
 			}
