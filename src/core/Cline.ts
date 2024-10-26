@@ -1130,7 +1130,7 @@ export class Cline {
 								this.userMessageContentReady = false
 							}
 							// present content to user
-							this.presentAssistantMessage()
+							this.handleAssistantMessage()
 							break
 					}
 
@@ -1190,7 +1190,7 @@ export class Cline {
 				// if there is content to update then it will complete and update this.userMessageContentReady to true,
 				// which we pwaitfor before making the next request.
 				// all this is really doing is presenting the last partial message that we just set to complete
-				this.presentAssistantMessage()
+				this.handleAssistantMessage()
 			}
 
 			updateApiReqMsg()
@@ -1254,7 +1254,7 @@ export class Cline {
 
 	// Main
 
-	async presentAssistantMessage() {
+	async handleAssistantMessage() {
 		if (this.abort) {
 			throw new Error("Cline instance aborted")
 		}
@@ -1314,13 +1314,13 @@ export class Cline {
 			if (this.currentStreamingContentIndex < this.assistantMessageContent.length) {
 				// there are already more content blocks to stream, so we'll call this function ourselves
 				// await this.presentAssistantContent()
-				this.presentAssistantMessage()
+				this.handleAssistantMessage()
 				return
 			}
 		}
 		// block is partial, but the read stream may have finished
 		if (this.presentAssistantMessageHasPendingUpdates) {
-			this.presentAssistantMessage()
+			this.handleAssistantMessage()
 		}
 	}
 
