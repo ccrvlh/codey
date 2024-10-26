@@ -26,9 +26,6 @@ export const toolUseNames = [
   "attempt_completion",
 ] as const
 
-// Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
-export type ToolUseName = (typeof toolUseNames)[number]
-
 export const toolParamNames = [
   "command",
   "path",
@@ -41,6 +38,9 @@ export const toolParamNames = [
   "result",
 ] as const
 
+
+// Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
+export type ToolUseName = (typeof toolUseNames)[number]
 
 export type ToolParamName = (typeof toolParamNames)[number]
 

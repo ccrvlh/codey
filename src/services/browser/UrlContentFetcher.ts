@@ -1,13 +1,13 @@
-import * as vscode from "vscode"
+import * as cheerio from "cheerio"
 import * as fs from "fs/promises"
 import * as path from "path"
 import { Browser, Page, ScreenshotOptions, TimeoutError, launch } from "puppeteer-core"
-import * as cheerio from "cheerio"
 import TurndownService from "turndown"
+import * as vscode from "vscode"
 // @ts-ignore
-import PCR from "puppeteer-chromium-resolver"
-import pWaitFor from "p-wait-for"
 import delay from "delay"
+import pWaitFor from "p-wait-for"
+import PCR from "puppeteer-chromium-resolver"
 import { fileExistsAtPath } from "../../utils/fs"
 
 interface PCRStats {
@@ -112,10 +112,12 @@ export class UrlContentFetcher {
 		})
 
 		try {
-			// networkidle2 isn't good enough since page may take some time to load. we can assume locally running dev sites will reach networkidle0 in a reasonable amount of time
+			// networkidle2 isn't good enough since page may take some time to load.
+			// we can assume locally running dev sites will reach networkidle0 in a reasonable amount of time
 			await this.page.goto(url, { timeout: 7_000, waitUntil: ["domcontentloaded", "networkidle2"] })
 			// await this.page.goto(url, { timeout: 10_000, waitUntil: "load" })
-			await this.waitTillHTMLStable(this.page) // in case the page is loading more resources
+			// in case the page is loading more resources
+			await this.waitTillHTMLStable(this.page)
 		} catch (err) {
 			if (!(err instanceof TimeoutError)) {
 				logs.push(`[Navigation Error] ${err.toString()}`)
@@ -126,7 +128,7 @@ export class UrlContentFetcher {
 		await pWaitFor(() => Date.now() - lastLogTs >= 500, {
 			timeout: 3_000,
 			interval: 100,
-		}).catch(() => {})
+		}).catch(() => { })
 
 		// image cannot exceed 8_000 pixels
 		const { pageHeight, pageWidth } = await this.page.evaluate(() => {
