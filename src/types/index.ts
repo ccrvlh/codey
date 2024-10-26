@@ -97,3 +97,32 @@ export interface AttemptCompletionToolUse extends ToolUse {
   name: "attempt_completion"
   params: Partial<Pick<Record<ToolParamName, string>, "result" | "command">>
 }
+
+export type SecretKey =
+  | "apiKey"
+  | "openRouterApiKey"
+  | "awsAccessKey"
+  | "awsSecretKey"
+  | "awsSessionToken"
+  | "openAiApiKey"
+  | "geminiApiKey"
+  | "openAiNativeApiKey"
+
+export type GlobalStateKey =
+  | "apiProvider"
+  | "apiModelId"
+  | "awsRegion"
+  | "vertexProjectId"
+  | "vertexRegion"
+  | "lastShownAnnouncementId"
+  | "customInstructions"
+  | "alwaysAllowReadOnly"
+  | "taskHistory"
+  | "openAiBaseUrl"
+  | "openAiModelId"
+  | "ollamaModelId"
+  | "ollamaBaseUrl"
+  | "anthropicBaseUrl"
+  | "azureApiVersion"
+  | "openRouterModelId"
+  | "openRouterModelInfo"

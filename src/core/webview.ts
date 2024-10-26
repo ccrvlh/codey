@@ -15,6 +15,8 @@ import { findLast } from "../shared/array"
 import { ExtensionMessage } from "../shared/ExtensionMessage"
 import { HistoryItem } from "../shared/HistoryItem"
 import { WebviewMessage } from "../shared/WebviewMessage"
+import { GlobalStateKey, SecretKey } from "../types"
+import { GlobalFileNames } from "../utils/const"
 import { fileExistsAtPath } from "../utils/fs"
 import { getNonce, getUri } from "../utils/helpers"
 import { Cline } from "./main"
@@ -26,42 +28,12 @@ https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default
 https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
 */
 
-type SecretKey =
-	| "apiKey"
-	| "openRouterApiKey"
-	| "awsAccessKey"
-	| "awsSecretKey"
-	| "awsSessionToken"
-	| "openAiApiKey"
-	| "geminiApiKey"
-	| "openAiNativeApiKey"
-type GlobalStateKey =
-	| "apiProvider"
-	| "apiModelId"
-	| "awsRegion"
-	| "vertexProjectId"
-	| "vertexRegion"
-	| "lastShownAnnouncementId"
-	| "customInstructions"
-	| "alwaysAllowReadOnly"
-	| "taskHistory"
-	| "openAiBaseUrl"
-	| "openAiModelId"
-	| "ollamaModelId"
-	| "ollamaBaseUrl"
-	| "anthropicBaseUrl"
-	| "azureApiVersion"
-	| "openRouterModelId"
-	| "openRouterModelInfo"
 
-export const GlobalFileNames = {
-	apiConversationHistory: "api_conversation_history.json",
-	uiMessages: "ui_messages.json",
-	openRouterModels: "openrouter_models.json",
-}
 
 export class ClineProvider implements vscode.WebviewViewProvider {
-	public static readonly sideBarId = "claude-dev.SidebarProvider" // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
+	// used in package.json as the view's id.
+	// This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
+	public static readonly sideBarId = "claude-dev.SidebarProvider"
 	public static readonly tabPanelId = "claude-dev.TabPanelProvider"
 	private static activeInstances: Set<ClineProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
@@ -77,10 +49,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	}
 
 	/*
-	VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system. This applies to event listening, commands, interacting with the UI, etc.
-	- https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
-	- https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-	*/
+		VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system. This applies to event listening, commands, interacting with the UI, etc.
+		- https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
+		- https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
+		*/
 	async dispose() {
 		this.outputChannel.appendLine("Disposing ClineProvider...")
 		await this.clearTask()
@@ -183,7 +155,9 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	}
 
 	async initClineWithTask(task?: string, images?: string[]) {
-		await this.clearTask() // ensures that an exising task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
+		// ensures that an exising task doesn't exist before starting a new one,
+		// although this shouldn't be possible since user must clear task before starting a new one
+		await this.clearTask()
 		const { apiConfiguration, customInstructions, alwaysAllowReadOnly } = await this.getState()
 		this.cline = new Cline(this, apiConfiguration, customInstructions, alwaysAllowReadOnly, task, images)
 	}
@@ -202,8 +176,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		)
 	}
 
-	// Send any JSON serializable data to the react app
 	async postMessageToWebview(message: ExtensionMessage) {
+		// Send any JSON serializable data to the react app
 		await this.view?.webview.postMessage(message)
 	}
 

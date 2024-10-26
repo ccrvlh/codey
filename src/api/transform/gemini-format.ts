@@ -15,11 +15,11 @@ export function convertAnthropicContentToGemini(
 	content:
 		| string
 		| Array<
-				| Anthropic.Messages.TextBlockParam
-				| Anthropic.Messages.ImageBlockParam
-				| Anthropic.Messages.ToolUseBlockParam
-				| Anthropic.Messages.ToolResultBlockParam
-		  >
+			| Anthropic.Messages.TextBlockParam
+			| Anthropic.Messages.ImageBlockParam
+			| Anthropic.Messages.ToolUseBlockParam
+			| Anthropic.Messages.ToolResultBlockParam
+		>
 ): Part[] {
 	if (typeof content === "string") {
 		return [{ text: content } as TextPart]
@@ -78,12 +78,12 @@ export function convertAnthropicContentToGemini(
 						} as FunctionResponsePart,
 						...imageParts.map(
 							(part) =>
-								({
-									inlineData: {
-										data: part.source.data,
-										mimeType: part.source.media_type,
-									},
-								} as InlineDataPart)
+							({
+								inlineData: {
+									data: part.source.data,
+									mimeType: part.source.media_type,
+								},
+							} as InlineDataPart)
 						),
 					]
 				}
@@ -120,10 +120,12 @@ export function convertAnthropicToolToGemini(tool: Anthropic.Messages.Tool): Fun
 	}
 }
 
-/*
-It looks like gemini likes to double escape certain characters when writing file contents: https://discuss.ai.google.dev/t/function-call-string-property-is-double-escaped/37867
-*/
+
 export function unescapeGeminiContent(content: string) {
+	/*
+	It looks like gemini likes to double escape certain characters when writing file contents.
+	Ref: https://discuss.ai.google.dev/t/function-call-string-property-is-double-escaped/37867
+	*/
 	return content
 		.replace(/\\n/g, "\n")
 		.replace(/\\'/g, "'")

@@ -34,6 +34,7 @@ import { getApiMetrics } from "../shared/getApiMetrics"
 import { HistoryItem } from "../shared/HistoryItem"
 import { ClineAskResponse } from "../shared/WebviewMessage"
 import { AssistantMessageContent, TextContent, ToolParamName, ToolResponse, ToolUse, ToolUseName, UserContent } from "../types"
+import { GlobalFileNames } from "../utils/const"
 import { calculateApiCost } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
 import { parseAssistantMessage } from "../utils/parsers"
@@ -41,10 +42,7 @@ import { arePathsEqual, getReadablePath } from "../utils/path"
 import { formatResponse, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
 import { addCustomInstructions, SYSTEM_PROMPT } from "./prompts"
-import { ClineProvider, GlobalFileNames } from "./webview"
-
-// may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
-const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop")
+import { ClineProvider } from "./webview"
 
 
 export class Cline {
@@ -55,6 +53,8 @@ export class Cline {
 	clineMessages: ClineMessage[] = []
 	didFinishAborting = false
 	abandoned = false
+	desktopPath = path.join(os.homedir(), "Desktop")
+	cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? this.desktopPath
 
 	// Task state
 	readonly taskId: string
@@ -93,7 +93,7 @@ export class Cline {
 		this.api = buildApiHandler(apiConfiguration)
 		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
-		this.diffViewProvider = new DiffViewProvider(cwd)
+		this.diffViewProvider = new DiffViewProvider(this.cwd)
 		this.customInstructions = customInstructions
 		this.alwaysAllowReadOnly = alwaysAllowReadOnly ?? false
 
@@ -609,7 +609,7 @@ export class Cline {
 		newUserContent.push({
 			type: "text",
 			text:
-				`[TASK RESUMPTION] This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry.${wasRecent
+				`[TASK RESUMPTION] This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${this.cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry.${wasRecent
 					? "\n\nIMPORTANT: If the last tool use was a write_to_file that was interrupted, the file was reverted back to its original state before the interrupted edit, and you do NOT need to re-read the file as you already have its up-to-date contents."
 					: ""
 				}` +
@@ -666,7 +666,7 @@ export class Cline {
 	// Utils
 
 	async executeCommand(command: string): Promise<[boolean, ToolResponse]> {
-		const terminalInfo = await this.terminalManager.getOrCreateTerminal(cwd)
+		const terminalInfo = await this.terminalManager.getOrCreateTerminal(this.cwd)
 		terminalInfo.terminal.show() // weird visual bug when creating new terminals (even manually) where there's an empty space at the top.
 		const process = this.terminalManager.runCommand(terminalInfo, command)
 
@@ -748,7 +748,7 @@ export class Cline {
 		const visibleFiles = vscode.window.visibleTextEditors
 			?.map((editor) => editor.document?.uri?.fsPath)
 			.filter(Boolean)
-			.map((absolutePath) => path.relative(cwd, absolutePath).toPosix())
+			.map((absolutePath) => path.relative(this.cwd, absolutePath).toPosix())
 			.join("\n")
 		if (visibleFiles) {
 			details += `\n${visibleFiles}`
@@ -761,7 +761,7 @@ export class Cline {
 			.flatMap((group) => group.tabs)
 			.map((tab) => (tab.input as vscode.TabInputText)?.uri?.fsPath)
 			.filter(Boolean)
-			.map((absolutePath) => path.relative(cwd, absolutePath).toPosix())
+			.map((absolutePath) => path.relative(this.cwd, absolutePath).toPosix())
 			.join("\n")
 		if (openTabs) {
 			details += `\n${openTabs}`
@@ -795,7 +795,7 @@ export class Cline {
 		for (const [uri, fileDiagnostics] of diagnostics) {
 			const problems = fileDiagnostics.filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
 			if (problems.length > 0) {
-				diagnosticsDetails += `\n## ${path.relative(cwd, uri.fsPath)}`
+				diagnosticsDetails += `\n## ${path.relative(this.cwd, uri.fsPath)}`
 				for (const diagnostic of problems) {
 					// let severity = diagnostic.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning"
 					const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
@@ -855,14 +855,14 @@ export class Cline {
 		}
 
 		if (includeFileDetails) {
-			details += `\n\n# Current Working Directory (${cwd.toPosix()}) Files\n`
-			const isDesktop = arePathsEqual(cwd, path.join(os.homedir(), "Desktop"))
+			details += `\n\n# Current Working Directory (${this.cwd.toPosix()}) Files\n`
+			const isDesktop = arePathsEqual(this.cwd, path.join(os.homedir(), "Desktop"))
 			if (isDesktop) {
 				// don't want to immediately access desktop since it would show permission popup
 				details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
 			} else {
-				const [files, didHitLimit] = await listFiles(cwd, true, 200)
-				const result = formatResponse.formatFilesList(cwd, files, didHitLimit)
+				const [files, didHitLimit] = await listFiles(this.cwd, true, 200)
+				const result = formatResponse.formatFilesList(this.cwd, files, didHitLimit)
 				details += result
 			}
 		}
@@ -882,14 +882,14 @@ export class Cline {
 					if (block.type === "text") {
 						return {
 							...block,
-							text: await parseMentions(block.text, cwd, this.urlContentFetcher),
+							text: await parseMentions(block.text, this.cwd, this.urlContentFetcher),
 						}
 					} else if (block.type === "tool_result") {
 						const isUserMessage = (text: string) => text.includes("<feedback>") || text.includes("<answer>")
 						if (typeof block.content === "string" && isUserMessage(block.content)) {
 							return {
 								...block,
-								content: await parseMentions(block.content, cwd, this.urlContentFetcher),
+								content: await parseMentions(block.content, this.cwd, this.urlContentFetcher),
 							}
 						} else if (Array.isArray(block.content)) {
 							const parsedContent = await Promise.all(
@@ -897,7 +897,7 @@ export class Cline {
 									if (contentBlock.type === "text" && isUserMessage(contentBlock.text)) {
 										return {
 											...contentBlock,
-											text: await parseMentions(contentBlock.text, cwd, this.urlContentFetcher),
+											text: await parseMentions(contentBlock.text, this.cwd, this.urlContentFetcher),
 										}
 									}
 									return contentBlock
@@ -917,7 +917,7 @@ export class Cline {
 	}
 
 	async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-		let systemPrompt = await SYSTEM_PROMPT(cwd, this.api.getModel().info.supportsImages ?? false)
+		let systemPrompt = await SYSTEM_PROMPT(this.cwd, this.api.getModel().info.supportsImages ?? false)
 		if (this.customInstructions && this.customInstructions.trim()) {
 			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often
 			// so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
@@ -1534,7 +1534,7 @@ export class Cline {
 			if (this.diffViewProvider.editType !== undefined) {
 				fileExists = this.diffViewProvider.editType === "modify"
 			} else {
-				const absolutePath = path.resolve(cwd, relPath)
+				const absolutePath = path.resolve(this.cwd, relPath)
 				fileExists = await fileExistsAtPath(absolutePath)
 				this.diffViewProvider.editType = fileExists ? "modify" : "create"
 			}
@@ -1543,7 +1543,7 @@ export class Cline {
 
 			const sharedMessageProps: ClineSayTool = {
 				tool: fileExists ? "editedExistingFile" : "newFileCreated",
-				path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+				path: getReadablePath(this.cwd, removeClosingTag("path", relPath)),
 			}
 			try {
 				if (block.partial) {
@@ -1614,7 +1614,7 @@ export class Cline {
 							"user_feedback_diff",
 							JSON.stringify({
 								tool: fileExists ? "editedExistingFile" : "newFileCreated",
-								path: getReadablePath(cwd, relPath),
+								path: getReadablePath(this.cwd, relPath),
 								diff: userEdits,
 							} satisfies ClineSayTool)
 						)
@@ -1647,7 +1647,7 @@ export class Cline {
 			const relPath: string | undefined = block.params.path
 			const sharedMessageProps: ClineSayTool = {
 				tool: "readFile",
-				path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+				path: getReadablePath(this.cwd, removeClosingTag("path", relPath)),
 			}
 			try {
 				if (block.partial) {
@@ -1668,7 +1668,7 @@ export class Cline {
 						return
 					}
 					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(cwd, relPath)
+					const absolutePath = path.resolve(this.cwd, relPath)
 					const completeMessage = JSON.stringify({
 						...sharedMessageProps,
 						content: absolutePath,
@@ -1701,7 +1701,7 @@ export class Cline {
 			const recursive = recursiveRaw?.toLowerCase() === "true"
 			const sharedMessageProps: ClineSayTool = {
 				tool: !recursive ? "listFilesTopLevel" : "listFilesRecursive",
-				path: getReadablePath(cwd, removeClosingTag("path", relDirPath)),
+				path: getReadablePath(this.cwd, removeClosingTag("path", relDirPath)),
 			}
 			try {
 				if (block.partial) {
@@ -1722,7 +1722,7 @@ export class Cline {
 						return
 					}
 					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(cwd, relDirPath)
+					const absolutePath = path.resolve(this.cwd, relDirPath)
 					const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
 					const result = formatResponse.formatFilesList(absolutePath, files, didHitLimit)
 					const completeMessage = JSON.stringify({
@@ -1750,7 +1750,7 @@ export class Cline {
 			const relDirPath: string | undefined = block.params.path
 			const sharedMessageProps: ClineSayTool = {
 				tool: "listCodeDefinitionNames",
-				path: getReadablePath(cwd, removeClosingTag("path", relDirPath)),
+				path: getReadablePath(this.cwd, removeClosingTag("path", relDirPath)),
 			}
 			try {
 				if (block.partial) {
@@ -1773,7 +1773,7 @@ export class Cline {
 						return
 					}
 					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(cwd, relDirPath)
+					const absolutePath = path.resolve(this.cwd, relDirPath)
 					const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
 					const completeMessage = JSON.stringify({
 						...sharedMessageProps,
@@ -1802,7 +1802,7 @@ export class Cline {
 			const filePattern: string | undefined = block.params.file_pattern
 			const sharedMessageProps: ClineSayTool = {
 				tool: "searchFiles",
-				path: getReadablePath(cwd, removeClosingTag("path", relDirPath)),
+				path: getReadablePath(this.cwd, removeClosingTag("path", relDirPath)),
 				regex: removeClosingTag("regex", regex),
 				filePattern: removeClosingTag("file_pattern", filePattern),
 			}
@@ -1830,8 +1830,8 @@ export class Cline {
 						return
 					}
 					this.consecutiveMistakeCount = 0
-					const absolutePath = path.resolve(cwd, relDirPath)
-					const results = await regexSearchFiles(cwd, absolutePath, regex, filePattern)
+					const absolutePath = path.resolve(this.cwd, relDirPath)
+					const results = await regexSearchFiles(this.cwd, absolutePath, regex, filePattern)
 					const completeMessage = JSON.stringify({
 						...sharedMessageProps,
 						content: results,
