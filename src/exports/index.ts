@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { ClineProvider } from "../core/webview/ClineProvider"
+import { ClineProvider } from "../core/webview"
 import { ClineAPI } from "./cline"
 
 export function createClineAPI(outputChannel: vscode.OutputChannel, sidebarProvider: ClineProvider): ClineAPI {

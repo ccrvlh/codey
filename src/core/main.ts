@@ -38,11 +38,10 @@ import { calculateApiCost } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
 import { parseAssistantMessage } from "../utils/parsers"
 import { arePathsEqual, getReadablePath } from "../utils/path"
+import { formatResponse, truncateHalfConversation } from "./formatter"
 import { parseMentions } from "./mentions"
-import { formatResponse } from "./prompts/responses"
-import { addCustomInstructions, SYSTEM_PROMPT } from "./prompts/system"
-import { truncateHalfConversation } from "./sliding-window"
-import { ClineProvider, GlobalFileNames } from "./webview/ClineProvider"
+import { addCustomInstructions, SYSTEM_PROMPT } from "./prompts"
+import { ClineProvider, GlobalFileNames } from "./webview"
 
 // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop")
