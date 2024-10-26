@@ -1007,6 +1007,30 @@ export class Cline {
 			return text.replace(tagRegex, "")
 		}
 
+		const cleanUpContent = (content: string): string => {
+			// pre-processing newContent for cases where weaker models might add artifacts like markdown codeblock markers (deepseek/llama) or extra escape characters (gemini)
+			if (content.startsWith("```")) {
+				// this handles cases where it includes language specifiers like ```python ```js
+				content = content.split("\n").slice(1).join("\n").trim()
+			}
+			if (content.endsWith("```")) {
+				content = content.split("\n").slice(0, -1).join("\n").trim()
+			}
+
+			// it seems not just llama models are doing this, but also gemini and potentially others
+			if (
+				content.includes("&gt;") ||
+				content.includes("&lt;") ||
+				content.includes("&quot;")
+			) {
+				content = content
+					.replace(/&gt;/g, ">")
+					.replace(/&lt;/g, "<")
+					.replace(/&quot;/g, '"')
+			}
+			return content
+		}
+
 		switch (block.name) {
 			case "write_to_file": {
 				const relPath: string | undefined = block.params.path
@@ -1026,26 +1050,7 @@ export class Cline {
 					this.diffViewProvider.editType = fileExists ? "modify" : "create"
 				}
 
-				// pre-processing newContent for cases where weaker models might add artifacts like markdown codeblock markers (deepseek/llama) or extra escape characters (gemini)
-				if (newContent.startsWith("```")) {
-					// this handles cases where it includes language specifiers like ```python ```js
-					newContent = newContent.split("\n").slice(1).join("\n").trim()
-				}
-				if (newContent.endsWith("```")) {
-					newContent = newContent.split("\n").slice(0, -1).join("\n").trim()
-				}
-
-				// it seems not just llama models are doing this, but also gemini and potentially others
-				if (
-					newContent.includes("&gt;") ||
-					newContent.includes("&lt;") ||
-					newContent.includes("&quot;")
-				) {
-					newContent = newContent
-						.replace(/&gt;/g, ">")
-						.replace(/&lt;/g, "<")
-						.replace(/&quot;/g, '"')
-				}
+				newContent = cleanUpContent(newContent)
 
 				const sharedMessageProps: ClineSayTool = {
 					tool: fileExists ? "editedExistingFile" : "newFileCreated",
