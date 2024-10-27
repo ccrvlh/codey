@@ -31,7 +31,7 @@ import { ClineAskResponse } from "../shared/WebviewMessage"
 import { AssistantMessageContent, TextContent, ToolResponse, ToolUse, ToolUseName, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { calculateApiCost } from "../utils/cost"
-import { ensureTaskDirectoryExists, fileExistsAtPath } from "../utils/fs"
+import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHistory } from "../utils/fs"
 import { timeAgoDescription } from "../utils/helpers"
 import { AssistantMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
@@ -115,45 +115,35 @@ export class Cline {
 
 	// Persistence Methods
 
-	private async getSavedApiConversationHistory(): Promise<Anthropic.MessageParam[]> {
-		const baseDir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
-		const filePath = path.join(baseDir, GlobalFileNames.apiConversationHistory)
-		const fileExists = await fileExistsAtPath(filePath)
-		if (fileExists) {
-			return JSON.parse(await fs.readFile(filePath, "utf8"))
-		}
-		return []
-	}
-
 	private async addToApiConversationHistory(message: Anthropic.MessageParam) {
 		this.apiConversationHistory.push(message)
-		await this.saveApiConversationHistory()
+		await this.saveApiConversationHistory(this.globalStoragePath, this.taskId, this.apiConversationHistory)
 	}
 
 	private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
 		this.apiConversationHistory = newHistory
-		await this.saveApiConversationHistory()
+		await this.saveApiConversationHistory(this.globalStoragePath, this.taskId, this.apiConversationHistory)
 	}
 
-	private async saveApiConversationHistory() {
+	private async saveApiConversationHistory(storagePath: string, taskId: string, history: Anthropic.Messages.MessageParam[]) {
 		try {
-			const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
+			const dir = await ensureTaskDirectoryExists(storagePath, taskId)
 			const filePath = path.join(dir, GlobalFileNames.apiConversationHistory)
-			const content = JSON.stringify(this.apiConversationHistory)
+			const content = JSON.stringify(history)
 			await fs.writeFile(filePath, content)
 		} catch (error) {
 			console.error("Failed to save API conversation history:", error)
 		}
 	}
 
-	private async getSavedClineMessages(): Promise<ClineMessage[]> {
-		const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
+	private async getSavedClineMessages(storagePath: string, taskId: string): Promise<ClineMessage[]> {
+		const dir = await ensureTaskDirectoryExists(storagePath, taskId)
 		const filePath = path.join(dir, GlobalFileNames.uiMessages)
 		if (await fileExistsAtPath(filePath)) {
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
 		}
 		// check old location
-		const oldDir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
+		const oldDir = await ensureTaskDirectoryExists(storagePath, taskId)
 		const oldPath = path.join(oldDir, "claude_messages.json")
 		if (await fileExistsAtPath(oldPath)) {
 			const data = JSON.parse(await fs.readFile(oldPath, "utf8"))
@@ -166,31 +156,31 @@ export class Cline {
 
 	private async addToClineMessages(message: ClineMessage) {
 		this.clineMessages.push(message)
-		await this.saveClineMessages()
+		await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 	}
 
 	private async overwriteClineMessages(newMessages: ClineMessage[]) {
 		this.clineMessages = newMessages
-		await this.saveClineMessages()
+		await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 	}
 
-	private async saveClineMessages() {
+	private async saveClineMessages(storagePath: string, taskId: string, messages: ClineMessage[]) {
 		try {
-			const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
+			const dir = await ensureTaskDirectoryExists(storagePath, taskId)
 			const filePath = path.join(dir, GlobalFileNames.uiMessages)
-			await fs.writeFile(filePath, JSON.stringify(this.clineMessages))
+			await fs.writeFile(filePath, JSON.stringify(messages))
 			// combined as they are in ChatView
-			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
-			const taskMessage = this.clineMessages[0] // first message is always the task say
+			const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(messages.slice(1))))
+			const taskMessage = messages[0] // first message is always the task say
 			const lastRelevantMessage =
-				this.clineMessages[
+				messages[
 				findLastIndex(
-					this.clineMessages,
+					messages,
 					(m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
 				)
 				]
 			await this.providerRef.deref()?.updateTaskHistory({
-				id: this.taskId,
+				id: taskId,
 				ts: lastRelevantMessage.ts,
 				task: taskMessage.text ?? "",
 				tokensIn: apiMetrics.totalTokensIn,
@@ -227,7 +217,7 @@ export class Cline {
 					lastMessage.text = text
 					lastMessage.partial = partial
 					// todo be more efficient about saving and posting only new data or one whole message at a time so ignore partial for saves, and only post parts of partial message instead of whole array in new listener
-					// await this.saveClineMessages()
+					// await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 					// await this.providerRef.deref()?.postStateToWebview()
 					await this.providerRef
 						.deref()
@@ -263,7 +253,7 @@ export class Cline {
 					// lastMessage.ts = askTs
 					lastMessage.text = text
 					lastMessage.partial = false
-					await this.saveClineMessages()
+					await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 					// await this.providerRef.deref()?.postStateToWebview()
 					await this.providerRef
 						.deref()
@@ -346,7 +336,7 @@ export class Cline {
 					lastMessage.partial = false
 
 					// instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-					await this.saveClineMessages()
+					await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 					// await this.providerRef.deref()?.postStateToWebview()
 					await this.providerRef
 						.deref()
@@ -399,7 +389,7 @@ export class Cline {
 	}
 
 	private async resumeTaskFromHistory() {
-		const modifiedClineMessages = await this.getSavedClineMessages()
+		const modifiedClineMessages = await this.getSavedClineMessages(this.globalStoragePath, this.taskId)
 
 		// Remove any resume messages that may have been added before
 		const lastRelevantMessageIndex = findLastIndex(
@@ -427,7 +417,7 @@ export class Cline {
 		}
 
 		await this.overwriteClineMessages(modifiedClineMessages)
-		this.clineMessages = await this.getSavedClineMessages()
+		this.clineMessages = await this.getSavedClineMessages(this.globalStoragePath, this.taskId)
 
 		// Now present the cline messages to the user and ask if they want to resume
 
@@ -455,7 +445,7 @@ export class Cline {
 		// need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
 
 		let existingApiConversationHistory: Anthropic.Messages.MessageParam[] =
-			await this.getSavedApiConversationHistory()
+			await getSavedApiConversationHistory(this.globalStoragePath, this.taskId)
 
 		// v2.0 xml tags refactor caveat: since we don't use tools anymore, we need to replace all tool use blocks with a text block since the API disallows conversations with tool uses and no tool schema
 		const conversationWithoutToolBlocks = existingApiConversationHistory.map((message) => {
@@ -1029,7 +1019,7 @@ export class Cline {
 		this.clineMessages[lastApiReqIndex].text = JSON.stringify({
 			request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n"),
 		} satisfies ClineApiReqInfo)
-		await this.saveClineMessages()
+		await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 		await this.providerRef.deref()?.postStateToWebview()
 
 		try {
@@ -1077,7 +1067,7 @@ export class Cline {
 					lastMessage.partial = false
 					// instead of streaming partialMessage events, we do a save and post like normal to persist to disk
 					console.log("updating partial message", lastMessage)
-					// await this.saveClineMessages()
+					// await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 				}
 
 				// Let assistant know their response was interrupted for when task is resumed
@@ -1098,7 +1088,7 @@ export class Cline {
 
 				// update api_req_started to have cancelled and cost, so that we can display the cost of the partial stream
 				updateApiReqMsg(cancelReason, streamingFailedMessage)
-				await this.saveClineMessages()
+				await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 
 				// signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
 				this.didFinishAborting = true
@@ -1203,7 +1193,7 @@ export class Cline {
 			}
 
 			updateApiReqMsg()
-			await this.saveClineMessages()
+			await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
 			await this.providerRef.deref()?.postStateToWebview()
 
 			// now add to apiconversationhistory
