@@ -163,6 +163,7 @@ export class ToolExecutor {
       if (!this.diffViewProvider.isEditing) {
         // show gui message before showing edit animation
         const partialMessage = JSON.stringify(sharedMessageProps)
+
         // sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
         await this.cline.ask("tool", partialMessage, true).catch(() => { })
         await this.diffViewProvider.open(relPath)
@@ -234,7 +235,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: undefined,
         } satisfies ClineSayTool)
-        if (this.cline.alwaysAllowReadOnly) {
+        if (this.cline.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -252,7 +253,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: absolutePath,
       } satisfies ClineSayTool)
-      if (this.cline.alwaysAllowReadOnly) {
+      if (this.cline.config.alwaysAllowReadOnly) {
         // need to be sending partialValue bool
         // since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
         // but as a single complete message
@@ -288,7 +289,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: "",
         } satisfies ClineSayTool)
-        if (this.cline.alwaysAllowReadOnly) {
+        if (this.cline.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -308,7 +309,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: result,
       } satisfies ClineSayTool)
-      if (this.cline.alwaysAllowReadOnly) {
+      if (this.cline.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -337,7 +338,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: "",
         } satisfies ClineSayTool)
-        if (this.cline.alwaysAllowReadOnly) {
+        if (this.cline.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -358,7 +359,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: result,
       } satisfies ClineSayTool)
-      if (this.cline.alwaysAllowReadOnly) {
+      if (this.cline.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -391,7 +392,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: "",
         } satisfies ClineSayTool)
-        if (this.cline.alwaysAllowReadOnly) {
+        if (this.cline.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -415,7 +416,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: results,
       } satisfies ClineSayTool)
-      if (this.cline.alwaysAllowReadOnly) {
+      if (this.cline.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -441,7 +442,7 @@ export class ToolExecutor {
     try {
       if (block.partial) {
         const partialMessage = JSON.stringify(sharedMessageProps)
-        if (this.cline.alwaysAllowReadOnly) {
+        if (this.cline.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -455,7 +456,7 @@ export class ToolExecutor {
       }
       this.cline.consecutiveMistakeCount = 0
       const completeMessage = JSON.stringify(sharedMessageProps)
-      if (this.cline.alwaysAllowReadOnly) {
+      if (this.cline.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)

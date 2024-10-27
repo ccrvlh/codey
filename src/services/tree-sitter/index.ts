@@ -4,7 +4,9 @@ import { fileExistsAtPath } from "../../utils/fs"
 import { listFiles } from "../glob/list-files"
 import { LanguageParser, loadRequiredLanguageParsers } from "./languageParser"
 
-// TODO: implement caching behavior to avoid having to keep analyzing project for new tasks.
+/*
+	TODO: implement caching behavior to avoid having to keep analyzing project for new tasks.
+	*/
 export async function parseSourceCodeForDefinitionsTopLevel(dirPath: string): Promise<string> {
 	// check if the path exists
 	const dirExists = await fileExistsAtPath(path.resolve(dirPath))
@@ -19,33 +21,15 @@ export async function parseSourceCodeForDefinitionsTopLevel(dirPath: string): Pr
 
 	// Separate files to parse and remaining files
 	const { filesToParse, remainingFiles } = separateFiles(allFiles)
-
 	const languageParsers = await loadRequiredLanguageParsers(filesToParse)
 
 	// Parse specific files we have language parsers for
-	// const filesWithoutDefinitions: string[] = []
 	for (const file of filesToParse) {
 		const definitions = await parseFile(file, languageParsers)
 		if (definitions) {
 			result += `${path.relative(dirPath, file).toPosix()}\n${definitions}\n`
 		}
-		// else {
-		// 	filesWithoutDefinitions.push(file)
-		// }
 	}
-
-	// List remaining files' paths
-	// let didFindUnparsedFiles = false
-	// filesWithoutDefinitions
-	// 	.concat(remainingFiles)
-	// 	.sort()
-	// 	.forEach((file) => {
-	// 		if (!didFindUnparsedFiles) {
-	// 			result += "# Unparsed Files\n\n"
-	// 			didFindUnparsedFiles = true
-	// 		}
-	// 		result += `${path.relative(dirPath, file)}\n`
-	// 	})
 
 	return result ? result : "No source code definitions found."
 }
@@ -80,21 +64,21 @@ function separateFiles(allFiles: string[]): { filesToParse: string[]; remainingF
 }
 
 /*
-Parsing files using tree-sitter
+	Parsing files using tree-sitter
 
-1. Parse the file content into an AST (Abstract Syntax Tree) using the appropriate language grammar (set of rules that define how the components of a language like keywords, expressions, and statements can be combined to create valid programs).
-2. Create a query using a language-specific query string, and run it against the AST's root node to capture specific syntax elements.
-		- We use tag queries to identify named entities in a program, and then use a syntax capture to label the entity and its name. A notable example of this is GitHub's search-based code navigation.
-	- Our custom tag queries are based on tree-sitter's default tag queries, but modified to only capture definitions.
-3. Sort the captures by their position in the file, output the name of the definition, and format by i.e. adding "|----\n" for gaps between captured sections.
+	1. Parse the file content into an AST (Abstract Syntax Tree) using the appropriate language grammar (set of rules that define how the components of a language like keywords, expressions, and statements can be combined to create valid programs).
+	2. Create a query using a language-specific query string, and run it against the AST's root node to capture specific syntax elements.
+			- We use tag queries to identify named entities in a program, and then use a syntax capture to label the entity and its name. A notable example of this is GitHub's search-based code navigation.
+		- Our custom tag queries are based on tree-sitter's default tag queries, but modified to only capture definitions.
+	3. Sort the captures by their position in the file, output the name of the definition, and format by i.e. adding "|----\n" for gaps between captured sections.
 
-This approach allows us to focus on the most relevant parts of the code (defined by our language-specific queries) and provides a concise yet informative view of the file's structure and key elements.
+	This approach allows us to focus on the most relevant parts of the code (defined by our language-specific queries) and provides a concise yet informative view of the file's structure and key elements.
 
-- https://github.com/tree-sitter/node-tree-sitter/blob/master/test/query_test.js
-- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/query-test.js
-- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/helper.js
-- https://tree-sitter.github.io/tree-sitter/code-navigation-systems
-*/
+	- https://github.com/tree-sitter/node-tree-sitter/blob/master/test/query_test.js
+	- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/query-test.js
+	- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/helper.js
+	- https://tree-sitter.github.io/tree-sitter/code-navigation-systems
+	*/
 async function parseFile(filePath: string, languageParsers: LanguageParser): Promise<string | undefined> {
 	const fileContent = await fs.readFile(filePath, "utf8")
 	const ext = path.extname(filePath).toLowerCase().slice(1)

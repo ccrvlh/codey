@@ -21,14 +21,14 @@ demo.gif
 .prettierignore
 
 # Ignore all webview-ui files except the build directory (https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/frameworks/hello-world-react-cra/.vscodeignore)
-webview-ui/src/**
-webview-ui/public/**
-webview-ui/scripts/**
-webview-ui/index.html
-webview-ui/README.md
-webview-ui/package.json
-webview-ui/package-lock.json
-webview-ui/node_modules/**
+webview/src/**
+webview/public/**
+webview/scripts/**
+webview/index.html
+webview/README.md
+webview/package.json
+webview/package-lock.json
+webview/node_modules/**
 **/.gitignore
 
 # Fix issue where codicons don't get packaged (https://github.com/microsoft/vscode-extension-samples/issues/692)

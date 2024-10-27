@@ -19,6 +19,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
     setCustomInstructions,
     alwaysAllowReadOnly,
     setAlwaysAllowReadOnly,
+    editAutoScroll,
+    setEditAutoScroll,
     openRouterModels,
   } = useExtensionState()
   const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
@@ -33,6 +35,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
       vscode.postMessage({ type: "apiConfiguration", apiConfiguration })
       vscode.postMessage({ type: "customInstructions", text: customInstructions })
       vscode.postMessage({ type: "alwaysAllowReadOnly", bool: alwaysAllowReadOnly })
+      vscode.postMessage({ type: "editAutoScroll", bool: editAutoScroll })
       onDone()
     }
   }
@@ -122,6 +125,22 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
             }}>
             When enabled, Cline will automatically read files, view directories, and inspect sites without requiring you
             to click the Approve button.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: 5 }}>
+          <VSCodeCheckbox checked={editAutoScroll} onChange={(e: any) => setEditAutoScroll(e.target.checked)}>
+            <span style={{ fontWeight: "500" }}>Auto Scroll when editing</span>
+          </VSCodeCheckbox>
+          <p
+            style={{
+              fontSize: "12px",
+              marginTop: "5px",
+              color: "var(--vscode-descriptionForeground)",
+            }}>
+            When enabled, Cline will automatically scroll the editor to the line that's currently being edited, so you
+            can follow changed in real time. Toggle this off if you want to manually scroll the editor during Cline's
+            edit.
           </p>
         </div>
 

@@ -47,8 +47,8 @@ export class Cline {
 	// Declarations
 	api: ApiHandler
 	customInstructions?: string
-	alwaysAllowReadOnly: boolean
 	urlContentFetcher: UrlContentFetcher
+	config: ClineConfig = {}
 
 	// State
 	apiConversationHistory: Anthropic.MessageParam[] = []
@@ -86,10 +86,10 @@ export class Cline {
 		provider: ClineProvider,
 		apiConfiguration: ApiConfiguration,
 		customInstructions?: string,
-		alwaysAllowReadOnly?: boolean,
 		task?: string,
 		images?: string[],
-		historyItem?: HistoryItem
+		historyItem?: HistoryItem,
+		config?: ClineConfig
 	) {
 		this.providerRef = new WeakRef(provider)
 		this.api = buildApiHandler(apiConfiguration)
@@ -97,7 +97,7 @@ export class Cline {
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
 		this.diffViewProvider = new DiffViewProvider(this.cwd)
 		this.customInstructions = customInstructions
-		this.alwaysAllowReadOnly = alwaysAllowReadOnly ?? false
+		this.config = config ?? {}
 		this.toolExecutor = new ToolExecutor(this, this.cwd, this.diffViewProvider)
 
 		if (historyItem) {

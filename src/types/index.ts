@@ -117,6 +117,7 @@ export type GlobalStateKey =
   | "lastShownAnnouncementId"
   | "customInstructions"
   | "alwaysAllowReadOnly"
+  | "editAutoScroll"
   | "taskHistory"
   | "openAiBaseUrl"
   | "openAiModelId"

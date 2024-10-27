@@ -158,21 +158,21 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		// ensures that an exising task doesn't exist before starting a new one,
 		// although this shouldn't be possible since user must clear task before starting a new one
 		await this.clearTask()
-		const { apiConfiguration, customInstructions, alwaysAllowReadOnly } = await this.getState()
-		this.cline = new Cline(this, apiConfiguration, customInstructions, alwaysAllowReadOnly, task, images)
+		const { apiConfiguration, customInstructions, alwaysAllowReadOnly, editAutoScroll } = await this.getState()
+		this.cline = new Cline(this, apiConfiguration, customInstructions, task, images, undefined, { alwaysAllowReadOnly, editAutoScroll })
 	}
 
 	async initClineWithHistoryItem(historyItem: HistoryItem) {
 		await this.clearTask()
-		const { apiConfiguration, customInstructions, alwaysAllowReadOnly } = await this.getState()
+		const { apiConfiguration, customInstructions, alwaysAllowReadOnly, editAutoScroll } = await this.getState()
 		this.cline = new Cline(
 			this,
 			apiConfiguration,
 			customInstructions,
-			alwaysAllowReadOnly,
 			undefined,
 			undefined,
-			historyItem
+			historyItem,
+			{ alwaysAllowReadOnly, editAutoScroll }
 		)
 	}
 
@@ -198,14 +198,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 		// The CSS file from the React build output
 		const stylesUri = getUri(webview, this.context.extensionUri, [
-			"webview-ui",
+			"webview",
 			"build",
 			"static",
 			"css",
 			"main.css",
 		])
 		// The JS file from the React build output
-		const scriptUri = getUri(webview, this.context.extensionUri, ["webview-ui", "build", "static", "js", "main.js"])
+		const scriptUri = getUri(webview, this.context.extensionUri, ["webview", "build", "static", "js", "main.js"])
 
 		// The codicon font from the React build output
 		// https://github.com/microsoft/vscode-extension-samples/blob/main/webview-codicons-sample/src/extension.ts
@@ -356,7 +356,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "alwaysAllowReadOnly":
 						await this.updateGlobalState("alwaysAllowReadOnly", message.bool ?? undefined)
 						if (this.cline) {
-							this.cline.alwaysAllowReadOnly = message.bool ?? false
+							this.cline.config.alwaysAllowReadOnly = message.bool ?? false
+						}
+						await this.postStateToWebview()
+						break
+					case "editAutoScroll":
+						await this.updateGlobalState("editAutoScroll", message.bool ?? undefined)
+						if (this.cline) {
+							this.cline.config.editAutoScroll = message.bool ?? false
 						}
 						await this.postStateToWebview()
 						break
@@ -689,13 +696,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	}
 
 	async getStateToPostToWebview() {
-		const { apiConfiguration, lastShownAnnouncementId, customInstructions, alwaysAllowReadOnly, taskHistory } =
+		const { apiConfiguration, lastShownAnnouncementId, customInstructions, alwaysAllowReadOnly, editAutoScroll, taskHistory } =
 			await this.getState()
 		return {
 			version: this.context.extension?.packageJSON?.version ?? "",
 			apiConfiguration,
 			customInstructions,
 			alwaysAllowReadOnly,
+			editAutoScroll,
 			uriScheme: vscode.env.uriScheme,
 			clineMessages: this.cline?.clineMessages || [],
 			taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
@@ -780,6 +788,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			lastShownAnnouncementId,
 			customInstructions,
 			alwaysAllowReadOnly,
+			editAutoScroll,
 			taskHistory,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
@@ -806,6 +815,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("lastShownAnnouncementId") as Promise<string | undefined>,
 			this.getGlobalState("customInstructions") as Promise<string | undefined>,
 			this.getGlobalState("alwaysAllowReadOnly") as Promise<boolean | undefined>,
+			this.getGlobalState("editAutoScroll") as Promise<boolean | undefined>,
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
 		])
 
@@ -850,6 +860,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			lastShownAnnouncementId,
 			customInstructions,
 			alwaysAllowReadOnly: alwaysAllowReadOnly ?? false,
+			editAutoScroll: editAutoScroll ?? true,
 			taskHistory,
 		}
 	}

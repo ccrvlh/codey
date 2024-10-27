@@ -128,10 +128,10 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "install:all": "npm install && cd webview-ui && npm install",
-    "start:webview": "cd webview-ui && npm run start",
-    "build:webview": "cd webview-ui && npm run build",
-    "test:webview": "cd webview-ui && npm run test",
+    "install:all": "npm install && cd webview && npm install",
+    "start:webview": "cd webview && npm run start",
+    "build:webview": "cd webview && npm run build",
+    "test:webview": "cd webview && npm run test",
     "publish:marketplace": "vsce publish && ovsx publish"
   },
   "devDependencies": {

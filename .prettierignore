@@ -1,4 +1,4 @@
 dist/
 node_modules
-webview-ui/build/
+webview/build/
 CHANGELOG.md

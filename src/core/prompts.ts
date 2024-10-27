@@ -176,9 +176,7 @@ const SYSTEM_INFORMATION = (cwd: string) => {
   `
 }
 
-
 // Tools
-
 
 const EXECUTE_COMMAND_TOOL = (cwd: string) => dedent`
   ## execute_command
