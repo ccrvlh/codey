@@ -1,7 +1,7 @@
-import * as vscode from "vscode"
-import * as path from "path"
 import * as fs from "fs/promises"
 import { convertTheme } from "monaco-vscode-textmate-theme-converter/lib/cjs"
+import * as path from "path"
+import * as vscode from "vscode"
 
 const defaultThemes: Record<string, string> = {
 	"Default Dark Modern": "dark_modern",
@@ -77,8 +77,8 @@ export async function getTheme() {
 			["vs", "hc-black"].includes(converted.base)
 				? converted.base
 				: colorTheme.includes("Light")
-				? "vs"
-				: "vs-dark"
+					? "vs"
+					: "vs-dark"
 		) as any
 
 		return converted

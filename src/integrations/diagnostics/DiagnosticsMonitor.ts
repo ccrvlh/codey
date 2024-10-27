@@ -12,18 +12,18 @@ Warnings: Potential problems in the code that may not prevent it from running bu
 Information: Non-critical suggestions or tips (e.g., formatting issues or notes from linters).
 The Problems tab displays diagnostics from various sources:
 1. Language Servers:
-   - TypeScript: Type errors, missing imports, syntax issues
-   - Python: Syntax errors, invalid type hints, undefined variables
-   - JavaScript/Node.js: Parsing and execution errors
+	 - TypeScript: Type errors, missing imports, syntax issues
+	 - Python: Syntax errors, invalid type hints, undefined variables
+	 - JavaScript/Node.js: Parsing and execution errors
 2. Linters:
-   - ESLint: Code style, best practices, potential bugs
-   - Pylint: Unused imports, naming conventions
-   - TSLint: Style and correctness issues in TypeScript
+	 - ESLint: Code style, best practices, potential bugs
+	 - Pylint: Unused imports, naming conventions
+	 - TSLint: Style and correctness issues in TypeScript
 3. Build Tools:
-   - Webpack: Module resolution failures, build errors
-   - Gulp: Build errors during task execution
+	 - Webpack: Module resolution failures, build errors
+	 - Gulp: Build errors during task execution
 4. Custom Validators:
-   - Extensions can generate custom diagnostics for specific languages or tools
+	 - Extensions can generate custom diagnostics for specific languages or tools
 Each problem typically indicates its source (e.g., language server, linter, build tool).
 Diagnostics update in real-time as you edit code, helping identify issues quickly. For example, if you introduce a syntax error in a TypeScript file, the Problems tab will immediately display the new error.
 

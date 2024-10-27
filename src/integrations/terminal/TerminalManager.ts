@@ -39,7 +39,7 @@ const terminalManager = new TerminalManager(context);
 const process = terminalManager.runCommand('npm install', '/path/to/project');
 
 process.on('line', (line) => {
-    console.log(line);
+		console.log(line);
 });
 
 // To wait for the process to complete naturally:

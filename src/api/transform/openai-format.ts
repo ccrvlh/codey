@@ -13,11 +13,11 @@ export function convertToOpenAiMessages(
 			// image_url.url is base64 encoded image data
 			// ensure it contains the content-type of the image: data:image/png;base64,
 			/*
-        { role: "user", content: "" | { type: "text", text: string } | { type: "image_url", image_url: { url: string } } },
-         // content required unless tool_calls is present
-        { role: "assistant", content?: "" | null, tool_calls?: [{ id: "", function: { name: "", arguments: "" }, type: "function" }] },
-        { role: "tool", tool_call_id: "", content: ""}
-         */
+				{ role: "user", content: "" | { type: "text", text: string } | { type: "image_url", image_url: { url: string } } },
+				 // content required unless tool_calls is present
+				{ role: "assistant", content?: "" | null, tool_calls?: [{ id: "", function: { name: "", arguments: "" }, type: "function" }] },
+				{ role: "tool", tool_call_id: "", content: ""}
+				 */
 			if (anthropicMessage.role === "user") {
 				const { nonToolMessages, toolMessages } = anthropicMessage.content.reduce<{
 					nonToolMessages: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[]

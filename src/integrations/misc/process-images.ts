@@ -1,6 +1,6 @@
-import * as vscode from "vscode"
 import fs from "fs/promises"
 import * as path from "path"
+import * as vscode from "vscode"
 
 export async function selectImages(): Promise<string[]> {
 	const options: vscode.OpenDialogOptions = {

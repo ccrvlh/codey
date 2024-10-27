@@ -1,6 +1,6 @@
-import * as vscode from "vscode"
-import * as path from "path"
 import deepEqual from "fast-deep-equal"
+import * as path from "path"
+import * as vscode from "vscode"
 
 export function getNewDiagnostics(
 	oldDiagnostics: [vscode.Uri, vscode.Diagnostic[]][],

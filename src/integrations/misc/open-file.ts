@@ -1,5 +1,5 @@
-import * as path from "path"
 import * as os from "os"
+import * as path from "path"
 import * as vscode from "vscode"
 import { arePathsEqual } from "../../utils/path"
 
@@ -41,7 +41,7 @@ export async function openFile(absolutePath: string) {
 					break
 				}
 			}
-		} catch {} // not essential, sometimes tab operations fail
+		} catch { } // not essential, sometimes tab operations fail
 
 		const document = await vscode.workspace.openTextDocument(uri)
 		await vscode.window.showTextDocument(document, { preview: false })
