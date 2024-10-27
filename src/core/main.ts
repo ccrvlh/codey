@@ -37,7 +37,7 @@ import { parseAssistantMessage } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
 import { formatResponse, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
-import { addCustomInstructions, SYSTEM_PROMPT } from "./prompts"
+import { CUSTOM_USER_INSTRUCTIONS, SYSTEM_PROMPT } from "./prompts"
 import { ToolExecutor } from "./tools"
 import { ClineProvider } from "./webview"
 
@@ -918,11 +918,12 @@ export class Cline {
 	}
 
 	async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
-		let systemPrompt = await SYSTEM_PROMPT(this.cwd, this.api.getModel().info.supportsImages ?? false)
+		const supportsImages = this.api.getModel().info.supportsImages ?? false
+		let systemPrompt = SYSTEM_PROMPT(this.cwd, supportsImages)
 		if (this.customInstructions && this.customInstructions.trim()) {
 			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often
 			// so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
-			systemPrompt += addCustomInstructions(this.customInstructions)
+			systemPrompt += CUSTOM_USER_INSTRUCTIONS(this.customInstructions)
 		}
 
 		// If the previous API request's total token usage is close to the context window,

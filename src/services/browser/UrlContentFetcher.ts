@@ -1,13 +1,12 @@
 import * as cheerio from "cheerio"
+import delay from "delay"
 import * as fs from "fs/promises"
+import pWaitFor from "p-wait-for"
 import * as path from "path"
+import PCR from "puppeteer-chromium-resolver"
 import { Browser, Page, ScreenshotOptions, TimeoutError, launch } from "puppeteer-core"
 import TurndownService from "turndown"
 import * as vscode from "vscode"
-// @ts-ignore
-import delay from "delay"
-import pWaitFor from "p-wait-for"
-import PCR from "puppeteer-chromium-resolver"
 import { fileExistsAtPath } from "../../utils/fs"
 
 interface PCRStats {
