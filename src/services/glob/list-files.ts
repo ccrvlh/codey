@@ -52,15 +52,15 @@ export async function listFiles(dirPath: string, recursive: boolean, limit: numb
 
 /*
 Breadth-first traversal of directory structure level by level up to a limit:
-   - Queue-based approach ensures proper breadth-first traversal
-   - Processes directory patterns level by level
-   - Captures a representative sample of the directory structure up to the limit
-   - Minimizes risk of missing deeply nested files
+	 - Queue-based approach ensures proper breadth-first traversal
+	 - Processes directory patterns level by level
+	 - Captures a representative sample of the directory structure up to the limit
+	 - Minimizes risk of missing deeply nested files
 
 - Notes:
-   - Relies on globby to mark directories with /
-   - Potential for loops if symbolic links reference back to parent (we could use followSymlinks: false but that may not be ideal for some projects and it's pointless if they're not using symlinks wrong)
-   - Timeout mechanism prevents infinite loops
+	 - Relies on globby to mark directories with /
+	 - Potential for loops if symbolic links reference back to parent (we could use followSymlinks: false but that may not be ideal for some projects and it's pointless if they're not using symlinks wrong)
+	 - Timeout mechanism prevents infinite loops
 */
 async function globbyLevelByLevel(limit: number, options?: Options) {
 	let results: Set<string> = new Set()
