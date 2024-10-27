@@ -1,5 +1,7 @@
+import Anthropic from "@anthropic-ai/sdk"
 import fs from "fs/promises"
 import * as path from "path"
+import { GlobalFileNames } from "./const"
 
 /**
  * Asynchronously creates all non-existing subdirectories for a given file path
@@ -44,4 +46,24 @@ export async function fileExistsAtPath(filePath: string): Promise<boolean> {
 	} catch {
 		return false
 	}
+}
+
+export async function ensureTaskDirectoryExists(storagePath: string, taskId: string): Promise<string> {
+	if (!storagePath) {
+		throw new Error("Global storage uri is invalid")
+	}
+	const taskDir = path.join(storagePath, "tasks", taskId)
+	await fs.mkdir(taskDir, { recursive: true })
+	return taskDir
+}
+
+
+export async function getSavedApiConversationHistory(storagePath: string, taskId: string): Promise<Anthropic.MessageParam[]> {
+	const baseDir = await ensureTaskDirectoryExists(storagePath, taskId)
+	const filePath = path.join(baseDir, GlobalFileNames.apiConversationHistory)
+	const fileExists = await fileExistsAtPath(filePath)
+	if (fileExists) {
+		return JSON.parse(await fs.readFile(filePath, "utf8"))
+	}
+	return []
 }

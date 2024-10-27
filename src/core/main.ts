@@ -31,7 +31,7 @@ import { ClineAskResponse } from "../shared/WebviewMessage"
 import { AssistantMessageContent, TextContent, ToolResponse, ToolUse, ToolUseName, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { calculateApiCost } from "../utils/cost"
-import { fileExistsAtPath } from "../utils/fs"
+import { ensureTaskDirectoryExists, fileExistsAtPath } from "../utils/fs"
 import { timeAgoDescription } from "../utils/helpers"
 import { AssistantMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
@@ -73,6 +73,7 @@ export class Cline {
 	private diffViewProvider: DiffViewProvider
 	private abort: boolean = false
 	private toolExecutor: ToolExecutor
+	private globalStoragePath: string
 
 	// Streaming
 	private currentStreamingContentIndex = 0
@@ -92,6 +93,7 @@ export class Cline {
 		config?: ClineConfig
 	) {
 		this.providerRef = new WeakRef(provider)
+		this.globalStoragePath = this.providerRef.deref()?.context.globalStorageUri.fsPath ?? ""
 		this.api = buildApiHandler(apiConfiguration)
 		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
@@ -113,18 +115,9 @@ export class Cline {
 
 	// Persistence Methods
 
-	private async ensureTaskDirectoryExists(): Promise<string> {
-		const globalStoragePath = this.providerRef.deref()?.context.globalStorageUri.fsPath
-		if (!globalStoragePath) {
-			throw new Error("Global storage uri is invalid")
-		}
-		const taskDir = path.join(globalStoragePath, "tasks", this.taskId)
-		await fs.mkdir(taskDir, { recursive: true })
-		return taskDir
-	}
-
 	private async getSavedApiConversationHistory(): Promise<Anthropic.MessageParam[]> {
-		const filePath = path.join(await this.ensureTaskDirectoryExists(), GlobalFileNames.apiConversationHistory)
+		const baseDir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
+		const filePath = path.join(baseDir, GlobalFileNames.apiConversationHistory)
 		const fileExists = await fileExistsAtPath(filePath)
 		if (fileExists) {
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
@@ -144,7 +137,7 @@ export class Cline {
 
 	private async saveApiConversationHistory() {
 		try {
-			const dir = await this.ensureTaskDirectoryExists()
+			const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
 			const filePath = path.join(dir, GlobalFileNames.apiConversationHistory)
 			const content = JSON.stringify(this.apiConversationHistory)
 			await fs.writeFile(filePath, content)
@@ -154,13 +147,14 @@ export class Cline {
 	}
 
 	private async getSavedClineMessages(): Promise<ClineMessage[]> {
-		const dir = await this.ensureTaskDirectoryExists()
+		const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
 		const filePath = path.join(dir, GlobalFileNames.uiMessages)
 		if (await fileExistsAtPath(filePath)) {
 			return JSON.parse(await fs.readFile(filePath, "utf8"))
 		}
 		// check old location
-		const oldPath = path.join(await this.ensureTaskDirectoryExists(), "claude_messages.json")
+		const oldDir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
+		const oldPath = path.join(oldDir, "claude_messages.json")
 		if (await fileExistsAtPath(oldPath)) {
 			const data = JSON.parse(await fs.readFile(oldPath, "utf8"))
 			await fs.unlink(oldPath) // remove old file
@@ -182,7 +176,7 @@ export class Cline {
 
 	private async saveClineMessages() {
 		try {
-			const dir = await this.ensureTaskDirectoryExists()
+			const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
 			const filePath = path.join(dir, GlobalFileNames.uiMessages)
 			await fs.writeFile(filePath, JSON.stringify(this.clineMessages))
 			// combined as they are in ChatView
