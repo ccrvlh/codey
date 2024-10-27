@@ -79,7 +79,7 @@ export class DiffViewProvider {
 		this.streamedLines = []
 	}
 
-	async update(accumulatedContent: string, isFinal: boolean) {
+	async update(accumulatedContent: string, isFinal: boolean, autoScroll: boolean = true) {
 		if (!this.relPath || !this.activeLineController || !this.fadedOverlayController) {
 			throw new Error("Required values not set")
 		}
@@ -112,8 +112,9 @@ export class DiffViewProvider {
 			// Update decorations
 			this.activeLineController.setActiveLine(currentLine)
 			this.fadedOverlayController.updateOverlayAfterLine(currentLine, document.lineCount)
-			// Scroll to the current line
-			this.scrollEditorToLine(currentLine)
+			if (autoScroll) {
+				this.scrollEditorToLine(currentLine)
+			}
 		}
 		// Update the streamedLines with the new accumulated content
 		this.streamedLines = accumulatedLines

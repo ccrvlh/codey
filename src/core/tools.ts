@@ -122,11 +122,11 @@ export class ToolExecutor {
     }
 
     newContent = this.cleanUpContent(newContent)
-
     const sharedMessageProps: ClineSayTool = {
       tool: fileExists ? "editedExistingFile" : "newFileCreated",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
     }
+
     try {
       if (block.partial) {
         // update gui message
@@ -138,7 +138,7 @@ export class ToolExecutor {
           await this.diffViewProvider.open(relPath)
         }
         // editor is open, stream content in
-        await this.diffViewProvider.update(newContent, false)
+        await this.diffViewProvider.update(newContent, false, this.cline.config.editAutoScroll)
         return
       }
       if (!relPath) {
@@ -168,7 +168,7 @@ export class ToolExecutor {
         await this.cline.ask("tool", partialMessage, true).catch(() => { })
         await this.diffViewProvider.open(relPath)
       }
-      await this.diffViewProvider.update(newContent, true)
+      await this.diffViewProvider.update(newContent, true, this.cline.config.editAutoScroll)
       await delay(300) // wait for diff view to update
       this.diffViewProvider.scrollToFirstDiff()
       showOmissionWarning(this.diffViewProvider.originalContent || "", newContent)

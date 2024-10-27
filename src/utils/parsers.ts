@@ -8,136 +8,216 @@ import {
   toolUseNames,
 } from "../types"
 
-export function parseAssistantMessage(assistantMessage: string) {
-  let contentBlocks: AssistantMessageContent[] = []
-  let currentTextContent: TextContent | undefined = undefined
-  let currentTextContentStartIndex = 0
-  let currentToolUse: ToolUse | undefined = undefined
-  let currentToolUseStartIndex = 0
-  let currentParamName: ToolParamName | undefined = undefined
-  let currentParamValueStartIndex = 0
-  let accumulator = ""
+export class AssistantMessageParser {
+  private contentBlocks: AssistantMessageContent[] = []
+  private currentTextContent: TextContent | undefined = undefined
+  private currentTextContentStartIndex = 0
+  private currentToolUse: ToolUse | undefined = undefined
+  private currentToolUseStartIndex = 0
+  private currentParamName: ToolParamName | undefined = undefined
+  private currentParamValueStartIndex = 0
+  private accumulator = ""
 
-  for (let i = 0; i < assistantMessage.length; i++) {
-    const char = assistantMessage[i]
-    accumulator += char
+  /**
+   * Handles parsing of tool use parameters.
+   * Processes parameter values until their closing tags are found.
+   */
+  private handleParameterParsing(): void {
+    if (!this.currentToolUse || !this.currentParamName) return
 
-    // there should not be a param without a tool use
-    if (currentToolUse && currentParamName) {
-      const currentParamValue = accumulator.slice(currentParamValueStartIndex)
-      const paramClosingTag = `</${currentParamName}>`
-      if (currentParamValue.endsWith(paramClosingTag)) {
-        // end of param value
-        currentToolUse.params[currentParamName] = currentParamValue.slice(0, -paramClosingTag.length).trim()
-        currentParamName = undefined
-        continue
-      } else {
-        // partial param value is accumulating
-        continue
-      }
+    const currentParamValue = this.accumulator.slice(this.currentParamValueStartIndex)
+    const paramClosingTag = `</${this.currentParamName}>`
+
+    if (currentParamValue.endsWith(paramClosingTag)) {
+      this.currentToolUse.params[this.currentParamName] = currentParamValue
+        .slice(0, -paramClosingTag.length)
+        .trim()
+      this.currentParamName = undefined
+    }
+  }
+
+  /**
+   * Handles parsing of tool use blocks.
+   * Processes tool uses until their closing tags are found and handles special cases.
+   */
+  private handleToolUseParsing(): void {
+    if (!this.currentToolUse) return
+
+    const currentToolValue = this.accumulator.slice(this.currentToolUseStartIndex)
+    const toolUseClosingTag = `</${this.currentToolUse.name}>`
+
+    if (currentToolValue.endsWith(toolUseClosingTag)) {
+      this.finalizeToolUse()
+      return
     }
 
-    // no currentParamName
+    this.checkForNewParameter()
+    this.handleWriteToFileSpecialCase()
+  }
 
-    if (currentToolUse) {
-      const currentToolValue = accumulator.slice(currentToolUseStartIndex)
-      const toolUseClosingTag = `</${currentToolUse.name}>`
-      if (currentToolValue.endsWith(toolUseClosingTag)) {
-        // end of a tool use
-        currentToolUse.partial = false
-        contentBlocks.push(currentToolUse)
-        currentToolUse = undefined
-        continue
-      } else {
-        const possibleParamOpeningTags = toolParamNames.map((name) => `<${name}>`)
-        for (const paramOpeningTag of possibleParamOpeningTags) {
-          if (accumulator.endsWith(paramOpeningTag)) {
-            // start of a new parameter
-            currentParamName = paramOpeningTag.slice(1, -1) as ToolParamName
-            currentParamValueStartIndex = accumulator.length
-            break
-          }
-        }
-
-        // there's no current param, and not starting a new param
-
-        // special case for write_to_file where file contents could contain the closing tag, in which case the param would have closed and we end up with the rest of the file contents here. To work around this, we get the string between the starting content tag and the LAST content tag.
-        const contentParamName: ToolParamName = "content"
-        if (currentToolUse.name === "write_to_file" && accumulator.endsWith(`</${contentParamName}>`)) {
-          const toolContent = accumulator.slice(currentToolUseStartIndex)
-          const contentStartTag = `<${contentParamName}>`
-          const contentEndTag = `</${contentParamName}>`
-          const contentStartIndex = toolContent.indexOf(contentStartTag) + contentStartTag.length
-          const contentEndIndex = toolContent.lastIndexOf(contentEndTag)
-          if (contentStartIndex !== -1 && contentEndIndex !== -1 && contentEndIndex > contentStartIndex) {
-            currentToolUse.params[contentParamName] = toolContent
-              .slice(contentStartIndex, contentEndIndex)
-              .trim()
-          }
-        }
-
-        // partial tool value is accumulating
-        continue
-      }
-    }
-
-    // no currentToolUse
-
-    let didStartToolUse = false
-    const possibleToolUseOpeningTags = toolUseNames.map((name) => `<${name}>`)
-    for (const toolUseOpeningTag of possibleToolUseOpeningTags) {
-      if (accumulator.endsWith(toolUseOpeningTag)) {
-        // start of a new tool use
-        currentToolUse = {
-          type: "tool_use",
-          name: toolUseOpeningTag.slice(1, -1) as ToolUseName,
-          params: {},
-          partial: true,
-        }
-        currentToolUseStartIndex = accumulator.length
-        // this also indicates the end of the current text content
-        if (currentTextContent) {
-          currentTextContent.partial = false
-          // remove the partially accumulated tool use tag from the end of text (<tool)
-          currentTextContent.content = currentTextContent.content
-            .slice(0, -toolUseOpeningTag.slice(0, -1).length)
-            .trim()
-          contentBlocks.push(currentTextContent)
-          currentTextContent = undefined
-        }
-
-        didStartToolUse = true
+  /**
+   * Checks for and initializes new parameter parsing when a parameter opening tag is found.
+   */
+  private checkForNewParameter(): void {
+    const possibleParamOpeningTags = toolParamNames.map((name) => `<${name}>`)
+    for (const paramOpeningTag of possibleParamOpeningTags) {
+      if (this.accumulator.endsWith(paramOpeningTag)) {
+        this.currentParamName = paramOpeningTag.slice(1, -1) as ToolParamName
+        this.currentParamValueStartIndex = this.accumulator.length
         break
       }
     }
+  }
+
+  /**
+   * Special case handling for write_to_file tool use where content may contain closing tags.
+   */
+  private handleWriteToFileSpecialCase(): void {
+    if (!this.currentToolUse) return
+
+    const contentParamName: ToolParamName = "content"
+    if (this.currentToolUse.name === "write_to_file" && this.accumulator.endsWith(`</${contentParamName}>`)) {
+      const toolContent = this.accumulator.slice(this.currentToolUseStartIndex)
+      const contentStartTag = `<${contentParamName}>`
+      const contentEndTag = `</${contentParamName}>`
+
+      const contentStartIndex = toolContent.indexOf(contentStartTag) + contentStartTag.length
+      const contentEndIndex = toolContent.lastIndexOf(contentEndTag)
+
+      if (contentStartIndex !== -1 && contentEndIndex !== -1 && contentEndIndex > contentStartIndex) {
+        this.currentToolUse.params[contentParamName] = toolContent
+          .slice(contentStartIndex, contentEndIndex)
+          .trim()
+      }
+    }
+  }
+
+  /**
+   * Handles parsing of text content between tool uses.
+   * @param currentIndex - Current position in the message string
+   */
+  private handleTextContentParsing(currentIndex: number): void {
+    let didStartToolUse = this.checkForNewToolUse()
 
     if (!didStartToolUse) {
-      // no tool use, so it must be text either at the beginning or between tools
-      if (currentTextContent === undefined) {
-        currentTextContentStartIndex = i
+      if (this.currentTextContent === undefined) {
+        this.currentTextContentStartIndex = currentIndex
       }
-      currentTextContent = {
+      this.currentTextContent = {
         type: "text",
-        content: accumulator.slice(currentTextContentStartIndex).trim(),
+        content: this.accumulator.slice(this.currentTextContentStartIndex).trim(),
         partial: true,
       }
     }
   }
 
-  if (currentToolUse) {
-    // stream did not complete tool call, add it as partial
-    if (currentParamName) {
-      // tool call has a parameter that was not completed
-      currentToolUse.params[currentParamName] = accumulator.slice(currentParamValueStartIndex).trim()
+  /**
+   * Checks for and initializes new tool use parsing when a tool use opening tag is found.
+   * @returns boolean indicating if a new tool use was started
+   */
+  private checkForNewToolUse(): boolean {
+    const possibleToolUseOpeningTags = toolUseNames.map((name) => `<${name}>`)
+
+    for (const toolUseOpeningTag of possibleToolUseOpeningTags) {
+      if (this.accumulator.endsWith(toolUseOpeningTag)) {
+        this.initializeNewToolUse(toolUseOpeningTag)
+        return true
+      }
     }
-    contentBlocks.push(currentToolUse)
+
+    return false
   }
 
-  // Note: it doesnt matter if check for currentToolUse or currentTextContent, only one of them will be defined since only one can be partial at a time
-  if (currentTextContent) {
-    // stream did not complete text content, add it as partial
-    contentBlocks.push(currentTextContent)
+  /**
+   * Initializes a new tool use and finalizes any current text content.
+   * @param toolUseOpeningTag - The opening tag that triggered the new tool use
+   */
+  private initializeNewToolUse(toolUseOpeningTag: string): void {
+    this.currentToolUse = {
+      type: "tool_use",
+      name: toolUseOpeningTag.slice(1, -1) as ToolUseName,
+      params: {},
+      partial: true,
+    }
+    this.currentToolUseStartIndex = this.accumulator.length
+
+    if (this.currentTextContent) {
+      this.finalizeTextContent(toolUseOpeningTag)
+    }
   }
 
-  return contentBlocks
+  /**
+   * Finalizes the current text content by removing partial tool use tags and adding to content blocks.
+   * @param toolUseOpeningTag - The tool use opening tag to remove from the end of text content
+   */
+  private finalizeTextContent(toolUseOpeningTag: string): void {
+    if (!this.currentTextContent) return
+
+    const textContent: TextContent = {
+      type: "text",
+      content: this.currentTextContent.content
+        .slice(0, -toolUseOpeningTag.slice(0, -1).length)
+        .trim(),
+      partial: false
+    }
+
+    this.contentBlocks.push(textContent)
+    this.currentTextContent = undefined
+  }
+
+  /**
+   * Finalizes a complete tool use by marking it as non-partial and adding to content blocks.
+   */
+  private finalizeToolUse(): void {
+    if (!this.currentToolUse) return
+
+    this.currentToolUse.partial = false
+    this.contentBlocks.push(this.currentToolUse)
+    this.currentToolUse = undefined
+  }
+
+  /**
+   * Finalizes any partial content at the end of parsing.
+   */
+  private finalizePartialContent(): void {
+    if (this.currentToolUse) {
+      if (this.currentParamName) {
+        this.currentToolUse.params[this.currentParamName] = this.accumulator
+          .slice(this.currentParamValueStartIndex)
+          .trim()
+      }
+      this.contentBlocks.push(this.currentToolUse)
+    }
+
+    if (this.currentTextContent) {
+      this.contentBlocks.push(this.currentTextContent)
+    }
+  }
+
+  /**
+   * Parses an assistant message into structured content blocks.
+   * @param assistantMessage - The raw message string to parse
+   * @returns Array of parsed content blocks (tool uses and text content)
+   */
+  static parse(assistantMessage: string) {
+    const parser = new AssistantMessageParser()
+    for (let i = 0; i < assistantMessage.length; i++) {
+      parser.accumulator += assistantMessage[i]
+
+      if (parser.currentToolUse && parser.currentParamName) {
+        parser.handleParameterParsing()
+        continue
+      }
+
+      if (parser.currentToolUse) {
+        parser.handleToolUseParsing()
+        continue
+      }
+
+      parser.handleTextContentParsing(i)
+    }
+
+    parser.finalizePartialContent()
+    return parser.contentBlocks
+  }
 }

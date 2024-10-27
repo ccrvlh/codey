@@ -33,7 +33,7 @@ import { GlobalFileNames } from "../utils/const"
 import { calculateApiCost } from "../utils/cost"
 import { fileExistsAtPath } from "../utils/fs"
 import { timeAgoDescription } from "../utils/helpers"
-import { parseAssistantMessage } from "../utils/parsers"
+import { AssistantMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
 import { formatResponse, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
@@ -1139,7 +1139,7 @@ export class Cline {
 							assistantMessage += chunk.text
 							// parse raw assistant message into content blocks
 							const prevLength = this.assistantMessageContent.length
-							this.assistantMessageContent = parseAssistantMessage(assistantMessage)
+							this.assistantMessageContent = AssistantMessageParser.parse(assistantMessage)
 							if (this.assistantMessageContent.length > prevLength) {
 								// new content we need to present, reset to false in case previous content set this to true
 								this.userMessageContentReady = false
