@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk"
 import delay from "delay"
+import fs from "fs/promises"
 import path from "path"
 import { serializeError } from "serialize-error"
+import * as vscode from "vscode"
 import { showOmissionWarning } from "../integrations/editor/detect-omission"
 import { DiffViewProvider } from "../integrations/editor/DiffViewProvider"
 import { extractTextFromFile } from "../integrations/misc/extract-text"
@@ -26,6 +28,8 @@ export class ToolExecutor {
     this.cwd = cwd
     this.diffViewProvider = diffViewProvider
   }
+
+  // Privates
 
   private cleanUpContent(content: string): string {
     // pre-processing newContent for cases where weaker models might add artifacts like markdown codeblock markers
@@ -671,6 +675,194 @@ export class ToolExecutor {
     }
   }
 
+  async searchReplaceTool(block: ToolUse) {
+    const contentParam: string | undefined = block.params.content
+    console.debug("contentParam:", contentParam);
+    if (block.partial) {
+      console.debug("Block is partial, returning early.");
+      return
+    }
+
+    if (!contentParam) {
+      console.debug("Content parameter is missing.");
+      this.cline.consecutiveMistakeCount++;
+      this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("search_replace", "content"));
+      return;
+    }
+
+    const content = this.cleanUpContent(contentParam);
+    console.debug("Cleaned up content:", content);
+
+    try {
+      const lines = content.split('\n');
+      console.debug("Content lines:", lines);
+
+      // First non-empty line should be the file path
+      const filePath = lines[0]?.trim();
+      console.debug("File path:", filePath);
+      if (!filePath) {
+        await this.handleError(block, "performing search and replace", new Error("file path not provided"));
+        return;
+      }
+
+      // Find the sections
+      let searchContent = '';
+      let replaceContent = '';
+      let currentSection: 'none' | 'search' | 'replace' = 'none';
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        console.debug(`Processing line ${i}:`, line);
+
+        if (line.match(/^<{5,9} SEARCH\s*$/)) {
+          currentSection = 'search';
+          console.debug("Entering search section.");
+          continue;
+        }
+        if (line.match(/^={5,9}\s*$/)) {
+          currentSection = 'replace';
+          console.debug("Entering replace section.");
+          continue;
+        }
+        if (line.match(/^>{5,9} REPLACE\s*$/)) {
+          console.debug("End of block.");
+          break; // End of block
+        }
+
+        // Add lines to appropriate section
+        if (currentSection === 'search') {
+          searchContent += (searchContent ? '\n' : '') + line;
+          console.debug("Adding to search content:", line);
+        } else if (currentSection === 'replace') {
+          replaceContent += (replaceContent ? '\n' : '') + line;
+          console.debug("Adding to replace content:", line);
+        }
+      }
+
+      // Validate we have all required parts
+      if (!searchContent || !replaceContent) {
+        console.debug("Waiting for the full content to come in.");
+        return
+      }
+
+      console.debug("Search content:", searchContent);
+      console.debug("Replace content:", replaceContent);
+
+      const absolutePath = path.resolve(this.cwd, filePath);
+      console.debug("Absolute file path:", absolutePath);
+      const originalContent = await fs.readFile(absolutePath, 'utf8');
+      console.debug("Original file content:", originalContent);
+
+      // Open the file in diff view
+      const document = await vscode.workspace.openTextDocument(absolutePath);
+      const editor = await vscode.window.showTextDocument(document);
+      console.debug("Opened file in editor.");
+
+      const fileContent = document.getText();
+      console.debug("File content from editor:", fileContent);
+
+      // Find the index of the content to search
+      const searchIndex = fileContent.indexOf(searchContent);
+      console.debug("Search content index:", searchIndex);
+
+      if (searchIndex === -1) {
+        vscode.window.showErrorMessage("Search content not found in the file.");
+        return;
+      }
+
+      // Create positions and range for the search content
+      const startPos = document.positionAt(searchIndex);
+      const endPos = document.positionAt(searchIndex + searchContent.length);
+      const range = new vscode.Range(startPos, endPos);
+      console.debug("Range for replacement:", range);
+
+      // Apply the replacement with the specified format
+      await editor.edit(editBuilder => {
+        editBuilder.insert(range.start, `<<<<<<< SEARCH\n`);
+        editBuilder.insert(range.end, `\n=======\n${replaceContent}\n>>>>>>> REPLACE`);
+      });
+      console.debug("Applied replacement in editor.");
+
+      // Move the cursor to the beginning of the `replaceContent`
+      const dividerLength = 9; // Length of `=======\n`
+      const replaceStartPos = document.positionAt(searchIndex + searchContent.length + dividerLength);
+      editor.selection = new vscode.Selection(replaceStartPos, replaceStartPos);
+      editor.revealRange(new vscode.Range(replaceStartPos, replaceStartPos), vscode.TextEditorRevealType.InCenter);
+      console.debug("Set cursor position to the start of the replaced content.");
+
+      const completeMessage = JSON.stringify({
+        tool: "searchReplace",
+        path: filePath,
+        diff: formatResponse.createPrettyPatch(
+          filePath,
+          originalContent,
+          document.getText()
+        ),
+      } satisfies ClineSayTool);
+
+      const didApprove = await this.askApproval(block, "tool", completeMessage);
+      if (!didApprove) {
+        await this.diffViewProvider.revertChanges();
+        return;
+      }
+
+      // After approval, clean up the merge conflict notation
+      const fullContent = document.getText();
+      const mergeStartIndex = fullContent.indexOf('<<<<<<< SEARCH\n');
+      const mergeEndIndex = fullContent.indexOf('>>>>>>> REPLACE') + '>>>>>>> REPLACE'.length;
+
+      if (mergeStartIndex !== -1 && mergeEndIndex !== -1) {
+        const replaceStart = fullContent.indexOf('=======\n') + '=======\n'.length;
+        const replaceEnd = fullContent.indexOf('\n>>>>>>> REPLACE');
+        const cleanedReplacement = fullContent.substring(replaceStart, replaceEnd);
+
+        await editor.edit(editBuilder => {
+          const entireRange = new vscode.Range(
+            document.positionAt(mergeStartIndex),
+            document.positionAt(mergeEndIndex)
+          );
+          editBuilder.replace(entireRange, cleanedReplacement);
+        });
+
+        await document.save();
+        this.cline.pushToolResult(block, `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`);
+        await this.diffViewProvider.reset();
+        return;
+      }
+
+      // Show changes and get approval
+      const { newProblemsMessage, userEdits } = await this.diffViewProvider.saveChanges();
+      console.debug("Saved changes. New problems message:", newProblemsMessage, "User edits:", userEdits);
+      this.cline.didEditFile = true;
+
+      if (!userEdits) {
+        this.cline.pushToolResult(block, `Search and replace completed successfully in ${filePath}.${newProblemsMessage}`);
+        await this.diffViewProvider.reset();
+        return;
+      }
+
+      // Handle user edits if any
+      const userFeedbackDiff = JSON.stringify({
+        tool: "searchReplace",
+        path: filePath,
+        diff: userEdits,
+      } satisfies ClineSayTool);
+
+      await this.cline.say("user_feedback_diff", userFeedbackDiff);
+      this.cline.pushToolResult(block,
+        `The user made the following updates:\n\n${userEdits}\n\n` +
+        `Changes applied successfully to ${filePath}.${newProblemsMessage}`
+      );
+      await this.diffViewProvider.reset();
+
+    } catch (error) {
+      console.error("Error during search and replace:", error);
+      await this.handleError(block, "performing search and replace", error);
+      await this.diffViewProvider.reset();
+    }
+
+  }
+
   // Handle Tool Execution
 
   async handleToolUse(block: ToolUse) {
@@ -709,6 +901,10 @@ export class ToolExecutor {
       }
       case "attempt_completion": {
         await this.attemptCompletionTool(block)
+        return
+      }
+      case "search_replace": {
+        await this.searchReplaceTool(block)
         return
       }
     }

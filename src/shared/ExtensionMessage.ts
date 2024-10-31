@@ -84,6 +84,7 @@ export interface ClineSayTool {
 	| "listCodeDefinitionNames"
 	| "searchFiles"
 	| "inspectSite"
+	| "searchReplace"
 	path?: string
 	diff?: string
 	content?: string

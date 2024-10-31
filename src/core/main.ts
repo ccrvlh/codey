@@ -652,6 +652,8 @@ export class Cline {
 				return `[${block.name} for '${block.params.question}']`
 			case "attempt_completion":
 				return `[${block.name}]`
+			case "search_replace":
+				return `[${block.name}]`
 		}
 	}
 

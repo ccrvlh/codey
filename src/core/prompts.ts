@@ -23,6 +23,8 @@ export const SYSTEM_PROMPT = (cwd: string, supportsImages: boolean) => {
     ${WRITE_TO_FILE_TOOL(cwd)}
 
     ${SEARCH_FILES_TOOL(cwd)}
+    
+    ${SEARCH_REPLACE_TOOL(cwd)}
 
     ${LIST_FILES_TOOL(cwd)}
 
@@ -213,6 +215,27 @@ const WRITE_TO_FILE_TOOL = (cwd: string) => dedent`
   Your file content here
   </content>
   </write_to_file>
+`
+
+const SEARCH_REPLACE_TOOL = (cwd: string) => dedent`
+  ## search_replace
+  Description: Request to modify file content using search and replace blocks. This tool allows for precise, surgical edits to files by specifying exactly what content to search for and what to replace it with. Should only be used for existing files. For new use the "writeToFileTool". The tool will maintain proper indentation and formatting while making changes. The SEARCH section must exactly match existing content including whitespace and indentation.
+  Parameters:
+  - content: (required) The search/replace blocks defining the changes. The filename must be relative to the current working directory ${cwd.toPosix()}.
+    
+  Usage:
+    <search_replace>
+    <content>
+    main.py
+    <<<<<<< SEARCH
+    def old_function():
+        print("old")
+    =======
+    def new_function():
+        print("new")
+    >>>>>>> REPLACE
+    </content>
+    </search_replace>
 `
 
 const SEARCH_FILES_TOOL = (cwd: string) => dedent`

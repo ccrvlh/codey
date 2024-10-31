@@ -24,6 +24,7 @@ export const toolUseNames = [
   "inspect_site",
   "ask_followup_question",
   "attempt_completion",
+  "search_replace",
 ] as const
 
 export const toolParamNames = [
