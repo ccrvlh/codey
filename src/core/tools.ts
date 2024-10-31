@@ -860,7 +860,168 @@ export class ToolExecutor {
       await this.handleError(block, "performing search and replace", error);
       await this.diffViewProvider.reset();
     }
+  }
 
+  async insertCodeBlockTool(block: ToolUse) {
+    console.debug("insertCodeBlockTool called with block:", block);
+    const relPath: string | undefined = block.params.path;
+    const position: string | undefined = block.params.position;
+    const content: string | undefined = block.params.content;
+
+    const sharedMessageProps: ClineSayTool = {
+      tool: "insertCodeBlock",
+      path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
+    };
+
+    if (!content) {
+      console.debug("Content is missing.");
+      return;
+    }
+
+    const newContent = this.cleanUpContent(content);
+    console.debug("Cleaned up content:", newContent);
+
+    try {
+      if (block.partial) {
+        console.debug("Block is partial, sending partial message.");
+        const partialMessage = JSON.stringify(sharedMessageProps);
+        await this.cline.ask("tool", partialMessage, block.partial).catch(() => {
+          console.debug("Partial message ask failed.");
+        });
+        return;
+      }
+
+      // Validate required parameters
+      if (!relPath) {
+        console.debug("Path is missing.");
+        this.cline.consecutiveMistakeCount++;
+        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("insert_code_block", "path"));
+        return;
+      }
+      if (!position) {
+        console.debug("Position is missing.");
+        this.cline.consecutiveMistakeCount++;
+        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("insert_code_block", "position"));
+        return;
+      }
+      if (!content) {
+        console.debug("Content is missing.");
+        this.cline.consecutiveMistakeCount++;
+        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("insert_code_block", "content"));
+        return;
+      }
+
+      this.cline.consecutiveMistakeCount = 0;
+
+      // Read the file
+      const absolutePath = path.resolve(this.cwd, relPath);
+      console.debug("Resolved absolute path:", absolutePath);
+      const fileContent = await fs.readFile(absolutePath, 'utf8');
+      this.diffViewProvider.editType = "modify"
+      this.diffViewProvider.originalContent = fileContent;
+      console.debug("Read file content:", fileContent);
+      const lines = fileContent.split('\n');
+      console.debug("File content split into lines:", lines);
+
+      // Convert position to number and validate
+      const lineNumber = parseInt(position);
+      console.debug("Parsed line number:", lineNumber);
+      if (isNaN(lineNumber) || lineNumber < 0 || lineNumber > lines.length) {
+        throw new Error(`Invalid position: ${position}. Must be a number between 0 and ${lines.length}`);
+      }
+
+      // Insert the code block at the specified position
+      const contentLines = content.split('\n');
+      console.debug("Content split into lines:", contentLines);
+      const targetLine = lineNumber - 1;
+      console.debug("Target line for insertion:", targetLine);
+
+      lines.splice(targetLine, 0, ...contentLines);
+      const updatedContent = lines.join('\n');
+      console.debug("New content with insertion:", updatedContent);
+
+      // Show changes in diff view
+      if (!this.diffViewProvider.isEditing) {
+        console.debug("Diff view is not editing, opening diff view.");
+        await this.cline.ask("tool", JSON.stringify(sharedMessageProps), true).catch(() => {
+          console.debug("Diff view opening ask failed.");
+        });
+        // First open with original content
+        await this.diffViewProvider.open(relPath);
+        await this.diffViewProvider.update(fileContent, false, this.cline.config.editAutoScroll);
+        this.diffViewProvider.scrollEditorToLine(targetLine);
+        await delay(200);
+      }
+
+      console.debug("Updating diff view with new content.");
+      await this.diffViewProvider.update(updatedContent, true, this.cline.config.editAutoScroll);
+
+      const completeMessage = JSON.stringify({
+        ...sharedMessageProps,
+        diff: formatResponse.createPrettyPatch(
+          relPath,
+          this.diffViewProvider.originalContent,
+          updatedContent
+        ),
+      } satisfies ClineSayTool);
+
+      console.debug("Asking for approval with complete message:", completeMessage);
+      const didApprove = await this.cline.ask("tool", completeMessage, false).then(
+        response => response.response === "yesButtonClicked"
+      );
+
+      if (!didApprove) {
+        console.debug("Changes were not approved, reverting changes.");
+        await this.diffViewProvider.revertChanges();
+        this.cline.pushToolResult(block, "Changes were rejected by the user.");
+        return;
+      }
+
+      console.debug("Saving changes after approval.");
+      const { newProblemsMessage, userEdits, finalContent } = await this.diffViewProvider.saveChanges();
+      this.cline.didEditFile = true;
+
+      if (!userEdits) {
+        console.debug("No user edits, pushing tool result.");
+        this.cline.pushToolResult(
+          block,
+          `The code block was successfully inserted at line ${position} in ${relPath.toPosix()}.${newProblemsMessage}`
+        );
+        await this.diffViewProvider.reset();
+        return;
+      }
+
+      const userFeedbackDiff = JSON.stringify({
+        tool: "insertCodeBlock",
+        path: getReadablePath(this.cwd, relPath),
+        diff: userEdits,
+      } satisfies ClineSayTool);
+
+      console.debug("User made edits, sending feedback diff:", userFeedbackDiff);
+      await this.cline.say("user_feedback_diff", userFeedbackDiff);
+      this.cline.pushToolResult(
+        block,
+        `The user made the following updates to your content:\n\n${userEdits}\n\n` +
+        `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
+        `<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
+        `Please note:\n` +
+        `1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
+        `2. Proceed with the task using this updated file content as the new baseline.\n` +
+        `3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
+        `${newProblemsMessage}`
+      );
+      await this.diffViewProvider.reset();
+
+    } catch (error) {
+      console.error("Error inserting code block:", error);
+      const errorString = `Error inserting code block: ${JSON.stringify(error)}`;
+      await this.cline.say(
+        "error",
+        `Error inserting code block:\n${error.message ?? JSON.stringify(error, null, 2)}`
+      );
+      this.cline.pushToolResult(block, formatResponse.toolError(errorString));
+      await this.diffViewProvider.reset();
+    }
   }
 
   // Handle Tool Execution
@@ -905,6 +1066,10 @@ export class ToolExecutor {
       }
       case "search_replace": {
         await this.searchReplaceTool(block)
+        return
+      }
+      case "insert_code_block": {
+        await this.insertCodeBlockTool(block)
         return
       }
     }

@@ -22,7 +22,8 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
 		default:
 			const isBinary = await isBinaryFile(filePath).catch(() => false)
 			if (!isBinary) {
-				return await fs.readFile(filePath, "utf8")
+				const content = await fs.readFile(filePath, "utf8")
+				return addLineNumbers(content)
 			} else {
 				throw new Error(`Cannot read text for file type: ${fileExtension}`)
 			}
@@ -32,12 +33,12 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
 async function extractTextFromPDF(filePath: string): Promise<string> {
 	const dataBuffer = await fs.readFile(filePath)
 	const data = await pdf(dataBuffer)
-	return data.text
+	return addLineNumbers(data.text)
 }
 
 async function extractTextFromDOCX(filePath: string): Promise<string> {
 	const result = await mammoth.extractRawText({ path: filePath })
-	return result.value
+	return addLineNumbers(result.value)
 }
 
 async function extractTextFromIPYNB(filePath: string): Promise<string> {
@@ -51,5 +52,14 @@ async function extractTextFromIPYNB(filePath: string): Promise<string> {
 		}
 	}
 
-	return extractedText
+	return addLineNumbers(extractedText)
+}
+
+function addLineNumbers(text: string): string {
+	const lines = text.split('\n')
+	const maxLineNumberWidth = lines.length.toString().length
+	return lines.map((line, index) => {
+		const lineNumber = (index + 1).toString().padStart(maxLineNumberWidth, ' ')
+		return `${lineNumber} | ${line}`
+	}).join('\n')
 }

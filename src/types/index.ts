@@ -25,6 +25,7 @@ export const toolUseNames = [
   "ask_followup_question",
   "attempt_completion",
   "search_replace",
+  "insert_code_block",
 ] as const
 
 export const toolParamNames = [
@@ -37,6 +38,7 @@ export const toolParamNames = [
   "url",
   "question",
   "result",
+  "position",
 ] as const
 
 
@@ -97,6 +99,11 @@ export interface AskFollowupQuestionToolUse extends ToolUse {
 export interface AttemptCompletionToolUse extends ToolUse {
   name: "attempt_completion"
   params: Partial<Pick<Record<ToolParamName, string>, "result" | "command">>
+}
+
+export interface InsertCodeBlockToolUse extends ToolUse {
+  name: "insert_code_block"
+  params: Partial<Pick<Record<ToolParamName, string>, "path" | "position" | "content">>
 }
 
 export type SecretKey =

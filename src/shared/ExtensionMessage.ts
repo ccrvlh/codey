@@ -85,6 +85,7 @@ export interface ClineSayTool {
 	| "searchFiles"
 	| "inspectSite"
 	| "searchReplace"
+	| "insertCodeBlock"
 	path?: string
 	diff?: string
 	content?: string

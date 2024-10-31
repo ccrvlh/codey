@@ -654,6 +654,8 @@ export class Cline {
 				return `[${block.name}]`
 			case "search_replace":
 				return `[${block.name}]`
+			case "insert_code_block":
+				return `[${block.name}]`
 		}
 	}
 

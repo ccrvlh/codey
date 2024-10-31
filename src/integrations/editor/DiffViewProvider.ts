@@ -306,7 +306,7 @@ export class DiffViewProvider {
 		})
 	}
 
-	private scrollEditorToLine(line: number) {
+	scrollEditorToLine(line: number) {
 		if (this.activeDiffEditor) {
 			const scrollLine = line + 4
 			this.activeDiffEditor.revealRange(

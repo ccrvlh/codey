@@ -20,15 +20,17 @@ export const SYSTEM_PROMPT = (cwd: string, supportsImages: boolean) => {
 
     ${READ_FILE_TOOL(cwd)}
 
-    ${WRITE_TO_FILE_TOOL(cwd)}
-
     ${SEARCH_FILES_TOOL(cwd)}
+    
+    ${INSERT_CODE_BLOCK_TOOL(cwd)}
     
     ${SEARCH_REPLACE_TOOL(cwd)}
 
     ${LIST_FILES_TOOL(cwd)}
 
     ${LIST_CODE_DEFINITION_NAMES_TOOL(cwd)}
+
+    ${WRITE_TO_FILE_TOOL(cwd)}
 
     ${supportsImages ? INSPECT_SITE_TOOL() : ""}
 
@@ -205,6 +207,7 @@ const READ_FILE_TOOL = (cwd: string) => dedent`
 const WRITE_TO_FILE_TOOL = (cwd: string) => dedent`
   ## write_to_file
   Description: Request to write content to a file at the specified path. If the file exists, it will be overwritten with the provided content. If the file doesn't exist, it will be created. This tool will automatically create any directories needed to write the file.
+  Only use this tool as a last resort. search_replace and insert_code_block tools are preferred.
   Parameters:
   - path: (required) The path of the file to write to (relative to the current working directory ${cwd.toPosix()})
   - content: (required) The content to write to the file. ALWAYS provide the COMPLETE intended content of the file, without any truncation or omissions. You MUST include ALL parts of the file, even if they haven't been modified.
@@ -217,9 +220,26 @@ const WRITE_TO_FILE_TOOL = (cwd: string) => dedent`
   </write_to_file>
 `
 
+export const INSERT_CODE_BLOCK_TOOL = (cwd: string) => dedent`
+  ## insert_code_block
+  Description: Request to insert a block of code at a specific line position in a file. This is PRIMARY TOOL for adding new functionality. This tool allows for precise insertion of code without overwriting the entire file. It will maintain proper indentation and formatting while making the insertion. Helpful when adding new code without modifying existing code: adding new functions/methods/classes, adding imports, adding attributes etc.).
+  Parameters:
+  - path: (required) The path of the file to insert code into (relative to the current working directory ${cwd.toPosix()})
+  - position: (required) The line number where the code block should be inserted
+  - content: (required) The code block to insert at the specified position
+  Usage:
+  <insert_code_block>
+  <path>File path here</path>
+  <position>Line number</position>
+  <content>
+  Your code block here
+  </content>
+  </insert_code_block>
+`
+
 const SEARCH_REPLACE_TOOL = (cwd: string) => dedent`
   ## search_replace
-  Description: Request to modify file content using search and replace blocks. This tool allows for precise, surgical edits to files by specifying exactly what content to search for and what to replace it with. Should only be used for existing files. For new use the "writeToFileTool". The tool will maintain proper indentation and formatting while making changes. The SEARCH section must exactly match existing content including whitespace and indentation.
+  Description: Request to replace existing code using search and replace blocks. This tool allows for precise, surgical replaces to files by specifying exactly what content to search for and what to replace it with. Only use this tool when you need to replace/fix existing functions/methods/attributes/etc. If you are just adding code, use the insert_code_block tool. The tool will maintain proper indentation and formatting while making changes. The SEARCH section must exactly match existing content including whitespace and indentation.
   Parameters:
   - content: (required) The search/replace blocks defining the changes. The filename must be relative to the current working directory ${cwd.toPosix()}.
     
