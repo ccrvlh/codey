@@ -23,11 +23,13 @@ export interface WebviewMessage {
 	| "openMention"
 	| "cancelTask"
 	| "refreshOpenRouterModels"
+	| "maxFileLineThreshold"
 	text?: string
 	askResponse?: ClineAskResponse
 	apiConfiguration?: ApiConfiguration
 	images?: string[]
 	bool?: boolean
+	value?: number  // Added for number-based config values
 }
 
 export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
