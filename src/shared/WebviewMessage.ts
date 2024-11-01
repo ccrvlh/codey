@@ -24,6 +24,10 @@ export interface WebviewMessage {
 	| "cancelTask"
 	| "refreshOpenRouterModels"
 	| "maxFileLineThreshold"
+	| "maxFileLineThresholdBehavior"
+	| "directoryContextMode"
+	| "directoryContextMaxLines"
+	| "maxMistakeLimit"
 	text?: string
 	askResponse?: ClineAskResponse
 	apiConfiguration?: ApiConfiguration
