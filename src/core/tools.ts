@@ -948,13 +948,13 @@ export class ToolExecutor {
         });
         // First open with original content
         await this.diffViewProvider.open(relPath);
-        await this.diffViewProvider.update(fileContent, false, this.cline.config.editAutoScroll);
+        await this.diffViewProvider.update(fileContent, false, this.cline.config.editAutoScroll, true);
         this.diffViewProvider.scrollEditorToLine(targetLine);
         await delay(200);
       }
 
       console.debug("Updating diff view with new content.");
-      await this.diffViewProvider.update(updatedContent, true, this.cline.config.editAutoScroll);
+      await this.diffViewProvider.update(updatedContent, true, this.cline.config.editAutoScroll, true);
 
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,

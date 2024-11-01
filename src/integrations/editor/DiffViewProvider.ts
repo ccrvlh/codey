@@ -79,7 +79,7 @@ export class DiffViewProvider {
 		this.streamedLines = []
 	}
 
-	async update(accumulatedContent: string, isFinal: boolean, autoScroll: boolean = true) {
+	async update(accumulatedContent: string, isFinal: boolean, autoScroll: boolean = true, isInsertBlock: boolean = false) {
 		if (!this.relPath || !this.activeLineController || !this.fadedOverlayController) {
 			throw new Error("Required values not set")
 		}
@@ -110,8 +110,11 @@ export class DiffViewProvider {
 			edit.replace(document.uri, rangeToReplace, contentToReplace)
 			await vscode.workspace.applyEdit(edit)
 			// Update decorations
-			this.activeLineController.setActiveLine(currentLine)
-			this.fadedOverlayController.updateOverlayAfterLine(currentLine, document.lineCount)
+			if (!isInsertBlock) {
+				// For normal streaming updates, highlight current line and fade everything after
+				this.activeLineController.setActiveLine(currentLine)
+				this.fadedOverlayController.updateOverlayAfterLine(currentLine, document.lineCount)
+			}
 			if (autoScroll) {
 				this.scrollEditorToLine(currentLine)
 			}
