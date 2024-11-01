@@ -1,4 +1,5 @@
 import { Anthropic } from "@anthropic-ai/sdk"
+import dedent from "dedent"
 import * as diff from "diff"
 import * as path from "path"
 import { TOOL_USE_REMINDER } from "./prompts"
@@ -17,16 +18,17 @@ export const formatResponse = {
   },
 
   noToolsUsed: () => {
-    return `[ERROR] You did not use a tool in your previous response! Please retry with a tool use.
+    return dedent`[ERROR] You did not use a tool in your previous response! Please retry with a tool use.
 
-${TOOL_USE_REMINDER}
+      ${TOOL_USE_REMINDER}
 
-# Next Steps
+      # Next Steps
 
-If you have completed the user's task, use the attempt_completion tool. 
-If you require additional information from the user, use the ask_followup_question tool. 
-Otherwise, if you have not completed the task and do not need additional information, then proceed with the next step of the task. 
-(This is an automated message, so do not respond to it conversationally.)`
+      If you have completed the user's task, use the attempt_completion tool. 
+      If you require additional information from the user, use the ask_followup_question tool. 
+      Otherwise, if you have not completed the task and do not need additional information, then proceed with the next step of the task. 
+      (This is an automated message, so do not respond to it conversationally.)
+    `
   },
 
   tooManyMistakes: (feedback?: string) => {
