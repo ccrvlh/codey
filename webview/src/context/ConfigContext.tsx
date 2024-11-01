@@ -1,16 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
+import type { ClineConfig } from "../../../src/core/config"
 import { vscode } from "../utils/vscode"
-
-interface ClineConfig {
-  customInstructions?: string[]
-  alwaysAllowReadOnly?: boolean
-  editAutoScroll?: boolean
-  maxFileLineThreshold?: number
-  maxFileLineThresholdBehavior?: "truncate" | "definitions"
-  directoryContextMode?: "files" | "tree"
-  directoryContextMaxLines?: number
-  maxMistakeLimit?: number
-}
 
 interface ConfigContextType extends ClineConfig {
   setCustomInstructions: (value: string[]) => void
@@ -48,6 +38,10 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
           alwaysAllowReadOnly: message.state.alwaysAllowReadOnly ?? false,
           editAutoScroll: message.state.editAutoScroll ?? false,
           maxFileLineThreshold: message.state.maxFileLineThreshold ?? 500,
+          maxFileLineThresholdBehavior: message.state.maxFileLineThresholdBehavior ?? "truncate",
+          directoryContextMode: message.state.directoryContextMode ?? "files",
+          directoryContextMaxLines: message.state.directoryContextMaxLines ?? 200,
+          maxMistakeLimit: message.state.maxMistakeLimit ?? 3,
         }))
       }
     }
@@ -86,18 +80,33 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
         value: value,
       })
     },
-    // These setters update local state only for now
     setMaxFileLineThresholdBehavior: (value) => {
       setConfig((prev) => ({ ...prev, maxFileLineThresholdBehavior: value }))
+      vscode.postMessage({
+        type: "maxFileLineThresholdBehavior",
+        text: value,
+      })
     },
     setDirectoryContextMode: (value) => {
       setConfig((prev) => ({ ...prev, directoryContextMode: value }))
+      vscode.postMessage({
+        type: "directoryContextMode",
+        text: value,
+      })
     },
     setDirectoryContextMaxLines: (value) => {
       setConfig((prev) => ({ ...prev, directoryContextMaxLines: value }))
+      vscode.postMessage({
+        type: "directoryContextMaxLines",
+        value: value,
+      })
     },
     setMaxMistakeLimit: (value) => {
       setConfig((prev) => ({ ...prev, maxMistakeLimit: value }))
+      vscode.postMessage({
+        type: "maxMistakeLimit",
+        value: value,
+      })
     },
   }
 
