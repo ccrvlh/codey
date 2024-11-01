@@ -18,7 +18,7 @@ import { formatResponse } from "./formatter"
 import { Cline } from "./main"
 
 export class ToolExecutor {
-
+  private static readonly MAX_FILE_LINES = 500;
   private diffViewProvider: DiffViewProvider
   private cwd: string
   private cline: Cline
@@ -268,8 +268,19 @@ export class ToolExecutor {
           return
         }
       }
-      // now execute the tool like normal
+      // Read file and check line count
       const content = await extractTextFromFile(absolutePath)
+      const lineCount = content.split('\n').length
+
+      if (lineCount > ToolExecutor.MAX_FILE_LINES) {
+        // If file is too large, use listCodeDefinitionNamesTool functionality instead
+        const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
+        this.cline.pushToolResult(block,
+          `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`
+        )
+        return
+      }
+
       this.cline.pushToolResult(block, content)
       return
 
