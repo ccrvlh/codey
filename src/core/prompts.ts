@@ -222,7 +222,7 @@ const WRITE_TO_FILE_TOOL = (cwd: string) => dedent`
 
 const INSERT_CODE_BLOCK_TOOL = (cwd: string) => dedent`
   ## insert_code_block
-  Description: Request to insert a block of code at a specific line position in a file. This is PRIMARY TOOL for adding new functionality. This tool allows for precise insertion of code without overwriting the entire file. It will maintain proper indentation and formatting while making the insertion. Helpful when adding new code without modifying existing code: adding new functions/methods/classes, adding imports, adding attributes etc.).
+  Description: Request to insert a block of code at a specific line position in a file. This is PRIMARY TOOL for adding new functionality. This tool allows for precise insertion of code without overwriting the entire file. Beware to use the proper identation. Helpful when adding new code without modifying existing code: adding new functions/methods/classes, adding imports, adding attributes etc.).
   Parameters:
   - path: (required) The path of the file to insert code into (relative to the current working directory ${cwd.toPosix()})
   - position: (required) The line number where the code block should be inserted
