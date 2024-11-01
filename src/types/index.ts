@@ -135,3 +135,8 @@ export type GlobalStateKey =
   | "azureApiVersion"
   | "openRouterModelId"
   | "openRouterModelInfo"
+  | "maxFileLineThreshold"
+  | "maxFileLineThresholdBehavior"
+  | "directoryContextMode"
+  | "directoryContextMaxLines"
+  | "maxMistakeLimit"
