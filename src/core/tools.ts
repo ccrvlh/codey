@@ -273,7 +273,7 @@ export class ToolExecutor {
       const lineCount = content.split('\n').length
 
       if (lineCount > ToolExecutor.MAX_FILE_LINES) {
-        // If file is too large, use listCodeDefinitionNamesTool functionality instead
+        console.debug(`File ${absolutePath} is too large (${lineCount} lines). Showing code definitions instead.`)
         const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
         this.cline.pushToolResult(block,
           `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`

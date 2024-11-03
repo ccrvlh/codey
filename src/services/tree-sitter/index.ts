@@ -14,7 +14,7 @@ export async function parseSourceCodeForDefinitionsTopLevel(inputPath: string): 
 	}
 
 	const stats = await fs.stat(inputPath)
-	if (!stats.isDirectory() || !stats.isFile()) {
+	if (!stats.isDirectory() && !stats.isFile()) {
 		return "The provided path is neither a file nor a directory."
 	}
 
@@ -128,7 +128,7 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 			// Only add the first line of the definition
 			// query captures includes the definition name and the definition implementation, but we only want the name (I found discrepencies in the naming structure for various languages, i.e. javascript names would be 'name' and typescript names would be 'name.definition)
 			if (name.includes("name") && lines[startLine]) {
-				formattedOutput += `│${lines[startLine]}\n`
+				formattedOutput += `│${lines[startLine]}`
 			}
 			// Adds all the captured lines
 			// for (let i = startLine; i <= endLine; i++) {
