@@ -777,8 +777,7 @@ export class ToolExecutor {
       console.debug("Search content index:", searchIndex);
 
       if (searchIndex === -1) {
-        vscode.window.showErrorMessage("Search content not found in the file.");
-        return;
+        await this.handleError(block, "couldn't find search content", new Error("search content not found in file"));
       }
 
       // Create positions and range for the search content

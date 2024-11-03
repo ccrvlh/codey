@@ -35,6 +35,7 @@ import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHis
 import { timeAgoDescription } from "../utils/helpers"
 import { AssistantMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
+import { ClineConfig } from "./config"
 import { formatResponse, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
 import { CUSTOM_USER_INSTRUCTIONS, SYSTEM_PROMPT } from "./prompts"
