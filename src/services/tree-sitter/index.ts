@@ -7,27 +7,32 @@ import { LanguageParser, loadRequiredLanguageParsers } from "./languageParser"
 /*
 	TODO: implement caching behavior to avoid having to keep analyzing project for new tasks.
 	*/
-export async function parseSourceCodeForDefinitionsTopLevel(dirPath: string): Promise<string> {
-	// check if the path exists
-	const dirExists = await fileExistsAtPath(path.resolve(dirPath))
-	if (!dirExists) {
-		return "This directory does not exist or you do not have permission to access it."
+export async function parseSourceCodeForDefinitionsTopLevel(inputPath: string): Promise<string> {
+	const pathExists = await fileExistsAtPath(path.resolve(inputPath))
+	if (!pathExists) {
+		return "This path does not exist or you do not have permission to access it."
 	}
 
-	// Get all files at top level (not gitignored)
-	const [allFiles, _] = await listFiles(dirPath, false, 200)
+	const stats = await fs.stat(inputPath)
+	if (!stats.isDirectory() || !stats.isFile()) {
+		return "The provided path is neither a file nor a directory."
+	}
+
+	let filesToParse: string[] = [inputPath]
+	if (stats.isDirectory()) {
+		const [allFiles, _] = await listFiles(inputPath, false, 200)
+		const separatedFiles = separateFiles(allFiles)
+		filesToParse = separatedFiles.filesToParse
+	}
 
 	let result = ""
-
-	// Separate files to parse and remaining files
-	const { filesToParse, remainingFiles } = separateFiles(allFiles)
 	const languageParsers = await loadRequiredLanguageParsers(filesToParse)
 
 	// Parse specific files we have language parsers for
 	for (const file of filesToParse) {
 		const definitions = await parseFile(file, languageParsers)
 		if (definitions) {
-			result += `${path.relative(dirPath, file).toPosix()}\n${definitions}\n`
+			result += `${path.relative(path.dirname(inputPath), file).toPosix()}\n${definitions}\n`
 		}
 	}
 
@@ -118,7 +123,7 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 
 			// Add separator if there's a gap between captures
 			if (lastLine !== -1 && startLine > lastLine + 1) {
-				formattedOutput += "|----\n"
+				formattedOutput += "\n"
 			}
 			// Only add the first line of the definition
 			// query captures includes the definition name and the definition implementation, but we only want the name (I found discrepencies in the naming structure for various languages, i.e. javascript names would be 'name' and typescript names would be 'name.definition)
