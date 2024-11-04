@@ -17,5 +17,3 @@ export const SIDEBAR_ID = "claude-dev.SidebarProvider"
  * This value is critical for the application's functionality and should not be changed, since it would break existing installations.
  */
 export const TAB_PANEL_ID = "claude-dev.TabPanelProvider"
-
-export const COMMAND_OUTPUT_STRING = "Output:"

@@ -1,4 +1,4 @@
-import { COMMAND_OUTPUT_STRING } from "../utils/const"
+import { COMMAND_OUTPUT_STRING } from "../shared/const"
 import { ClineMessage } from "./interfaces"
 
 /**

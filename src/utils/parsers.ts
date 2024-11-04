@@ -23,7 +23,9 @@ export class AssistantMessageParser {
    * Processes parameter values until their closing tags are found.
    */
   private handleParameterParsing(): void {
-    if (!this.currentToolUse || !this.currentParamName) return
+    if (!this.currentToolUse || !this.currentParamName) {
+      return
+    }
 
     const currentParamValue = this.accumulator.slice(this.currentParamValueStartIndex)
     const paramClosingTag = `</${this.currentParamName}>`
@@ -41,7 +43,9 @@ export class AssistantMessageParser {
    * Processes tool uses until their closing tags are found and handles special cases.
    */
   private handleToolUseParsing(): void {
-    if (!this.currentToolUse) return
+    if (!this.currentToolUse) {
+      return
+    }
 
     const currentToolValue = this.accumulator.slice(this.currentToolUseStartIndex)
     const toolUseClosingTag = `</${this.currentToolUse.name}>`
@@ -73,7 +77,9 @@ export class AssistantMessageParser {
    * Special case handling for write_to_file tool use where content may contain closing tags.
    */
   private handleWriteToFileSpecialCase(): void {
-    if (!this.currentToolUse) return
+    if (!this.currentToolUse) {
+      return
+    }
 
     const contentParamName: ToolParamName = "content"
     if (this.currentToolUse.name === "write_to_file" && this.accumulator.endsWith(`</${contentParamName}>`)) {
@@ -151,7 +157,9 @@ export class AssistantMessageParser {
    * @param toolUseOpeningTag - The tool use opening tag to remove from the end of text content
    */
   private finalizeTextContent(toolUseOpeningTag: string): void {
-    if (!this.currentTextContent) return
+    if (!this.currentTextContent) {
+      return
+    }
 
     const textContent: TextContent = {
       type: "text",
@@ -169,7 +177,9 @@ export class AssistantMessageParser {
    * Finalizes a complete tool use by marking it as non-partial and adding to content blocks.
    */
   private finalizeToolUse(): void {
-    if (!this.currentToolUse) return
+    if (!this.currentToolUse) {
+      return
+    }
 
     this.currentToolUse.partial = false
     this.contentBlocks.push(this.currentToolUse)

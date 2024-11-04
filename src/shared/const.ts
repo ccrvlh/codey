@@ -1,0 +1,1 @@
+export const COMMAND_OUTPUT_STRING = "Output:"

@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useEvent } from "react-use"
 import { openRouterDefaultModelId, openRouterDefaultModelInfo } from "../../../src/shared/api"
+import { findLastIndex } from "../../../src/shared/helpers"
 import { ApiConfiguration, ExtensionMessage, ExtensionState, ModelInfo } from "../../../src/shared/interfaces"
-import { findLastIndex } from "../../../src/utils/helpers"
 import { convertTextMateToHljs } from "../utils/textMateToHljs"
 import { vscode } from "../utils/vscode"
 

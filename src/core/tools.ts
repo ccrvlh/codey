@@ -82,7 +82,7 @@ export class ToolExecutor {
 
   async askApproval(block: ToolUse, type: ClineAsk, partialMessage?: string) {
     const { response, text, images } = await this.cline.ask(type, partialMessage, false)
-    if (response == "yesButtonClicked") {
+    if (response === "yesButtonClicked") {
       return true
     }
     if (response === "messageResponse") {
