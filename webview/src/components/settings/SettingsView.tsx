@@ -112,35 +112,6 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
           </p>
         </div>
 
-        <div className="dropdown-container">
-          <label htmlFor="instructions-placement">
-            <span style={{ fontWeight: 500 }}>Custom Instructions mode</span>
-          </label>
-          <div style={{ marginBottom: 5 }}>
-            <VSCodeDropdown
-              id="instructions-placement"
-              value={config.customInstructionsMode}
-              onChange={(e) =>
-                config.setCustomInstructionsMode(
-                  ((e.target as HTMLSelectElement)?.value ?? "system") as "system" | "user"
-                )
-              }
-              style={{ width: "100%", position: "relative" }}>
-              <VSCodeOption value="system">System Prompt</VSCodeOption>
-              <VSCodeOption value="user">User Message</VSCodeOption>
-            </VSCodeDropdown>
-            <p
-              style={{
-                fontSize: "12px",
-                marginTop: "5px",
-                color: "var(--vscode-descriptionForeground)",
-              }}>
-              Where to add the custom instructions. `System Prompt` will add the instructions to the end of the system
-              prompt, `User Message` will add the instructions at every user message.
-            </p>
-          </div>
-        </div>
-
         <div style={{ marginBottom: 5 }}>
           <VSCodeCheckbox checked={alwaysAllowReadOnly} onChange={(e: any) => setAlwaysAllowReadOnly(e.target.checked)}>
             <span style={{ fontWeight: "500" }}>Always approve read-only operations</span>

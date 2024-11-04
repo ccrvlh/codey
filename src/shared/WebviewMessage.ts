@@ -4,7 +4,6 @@ export interface WebviewMessage {
 	type:
 	| "apiConfiguration"
 	| "customInstructions"
-	| "customInstructionsMode"
 	| "alwaysAllowReadOnly"
 	| "editAutoScroll"
 	| "webviewDidLaunch"

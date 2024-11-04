@@ -3,7 +3,6 @@ import { GlobalStateKey } from "../types"
 
 export interface ClineConfig {
   customInstructions: string
-  customInstructionsMode: "system" | "user"
   alwaysAllowReadOnly: boolean
   editAutoScroll: boolean
   maxFileLineThreshold: number
@@ -19,7 +18,6 @@ export class ConfigManager {
   async getConfig(): Promise<ClineConfig> {
     const [
       customInstructions,
-      customInstructionsMode,
       alwaysAllowReadOnly,
       editAutoScroll,
       maxFileLineThreshold,
@@ -29,7 +27,6 @@ export class ConfigManager {
       maxMistakeLimit,
     ] = await Promise.all([
       this.getGlobalState("customInstructions") as Promise<string | undefined>,
-      this.getGlobalState("customInstructionsMode") as Promise<"system" | "user" | undefined>,
       this.getGlobalState("alwaysAllowReadOnly") as Promise<boolean | undefined>,
       this.getGlobalState("editAutoScroll") as Promise<boolean | undefined>,
       this.getGlobalState("maxFileLineThreshold") as Promise<number | undefined>,
@@ -41,7 +38,6 @@ export class ConfigManager {
 
     return {
       customInstructions: customInstructions ?? "",
-      customInstructionsMode: customInstructionsMode ?? "system",
       alwaysAllowReadOnly: alwaysAllowReadOnly ?? false,
       editAutoScroll: editAutoScroll ?? false,
       maxFileLineThreshold: maxFileLineThreshold ?? 500,
