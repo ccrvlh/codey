@@ -15,24 +15,21 @@ import { TerminalManager } from "../integrations/terminal/TerminalManager"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
 import { ApiConfiguration } from "../shared/api"
-import { findLastIndex } from "../shared/array"
-import { combineApiRequests } from "../shared/combineApiRequests"
-import { combineCommandSequences } from "../shared/combineCommandSequences"
+import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
 import {
 	ClineApiReqCancelReason,
 	ClineApiReqInfo,
 	ClineAsk,
 	ClineMessage,
-	ClineSay
-} from "../shared/ExtensionMessage"
-import { getApiMetrics } from "../shared/getApiMetrics"
-import { HistoryItem } from "../shared/HistoryItem"
-import { ClineAskResponse } from "../shared/WebviewMessage"
+	ClineSay, HistoryItem
+} from "../shared/interfaces"
+import { ClineAskResponse } from "../shared/iterfaces"
+import { getApiMetrics } from "../shared/metrics"
 import { AssistantMessageContent, TextContent, ToolResponse, ToolUse, ToolUseName, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { calculateApiCost } from "../utils/cost"
 import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHistory } from "../utils/fs"
-import { timeAgoDescription } from "../utils/helpers"
+import { findLastIndex, timeAgoDescription } from "../utils/helpers"
 import { AssistantMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
 import { ClineConfig } from "./config"

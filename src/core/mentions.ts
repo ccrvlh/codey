@@ -6,7 +6,76 @@ import { diagnosticsToProblemsString } from "../integrations/diagnostics"
 import { extractTextFromFile } from "../integrations/misc/extract-text"
 import { openFile } from "../integrations/misc/open-file"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
-import { mentionRegexGlobal } from "../shared/context-mentions"
+import { MENTION_REGEX_GLOBAL } from "../shared/mentions"
+
+async function getFileOrFolderContent(mentionPath: string, cwd: string): Promise<string> {
+	const absPath = path.resolve(cwd, mentionPath)
+
+	try {
+		const stats = await fs.stat(absPath)
+
+		if (stats.isFile()) {
+			const isBinary = await isBinaryFile(absPath).catch(() => false)
+			if (isBinary) {
+				return "(Binary file, unable to display content)"
+			}
+			const content = await extractTextFromFile(absPath)
+			return content
+		} else if (stats.isDirectory()) {
+			const entries = await fs.readdir(absPath, { withFileTypes: true })
+			let folderContent = ""
+			const fileContentPromises: Promise<string | undefined>[] = []
+			entries.forEach((entry, index) => {
+				const isLast = index === entries.length - 1
+				const linePrefix = isLast ? "└── " : "├── "
+				if (entry.isFile()) {
+					folderContent += `${linePrefix}${entry.name}\n`
+					const filePath = path.join(mentionPath, entry.name)
+					const absoluteFilePath = path.resolve(absPath, entry.name)
+					// const relativeFilePath = path.relative(cwd, absoluteFilePath);
+					fileContentPromises.push(
+						(async () => {
+							try {
+								const isBinary = await isBinaryFile(absoluteFilePath).catch(() => false)
+								if (isBinary) {
+									return undefined
+								}
+								const content = await extractTextFromFile(absoluteFilePath)
+								return `<file_content path="${filePath.toPosix()}">\n${content}\n</file_content>`
+							} catch (error) {
+								return undefined
+							}
+						})()
+					)
+				} else if (entry.isDirectory()) {
+					folderContent += `${linePrefix}${entry.name}/\n`
+					// not recursively getting folder contents
+				} else {
+					folderContent += `${linePrefix}${entry.name}\n`
+				}
+			})
+			const fileContents = (await Promise.all(fileContentPromises)).filter((content) => content)
+			return `${folderContent}\n${fileContents.join("\n\n")}`.trim()
+		} else {
+			return `(Failed to read contents of ${mentionPath})`
+		}
+	} catch (error) {
+		throw new Error(`Failed to access path "${mentionPath}": ${error.message}`)
+	}
+}
+
+function getWorkspaceProblems(cwd: string): string {
+	const diagnostics = vscode.languages.getDiagnostics()
+	const result = diagnosticsToProblemsString(
+		diagnostics,
+		[vscode.DiagnosticSeverity.Error, vscode.DiagnosticSeverity.Warning],
+		cwd
+	)
+	if (!result) {
+		return "No errors or warnings detected."
+	}
+	return result
+}
 
 export function openMention(mention?: string): void {
 	if (!mention) {
@@ -35,7 +104,7 @@ export function openMention(mention?: string): void {
 
 export async function parseMentions(text: string, cwd: string, urlContentFetcher: UrlContentFetcher): Promise<string> {
 	const mentions: Set<string> = new Set()
-	let parsedText = text.replace(mentionRegexGlobal, (match, mention) => {
+	let parsedText = text.replace(MENTION_REGEX_GLOBAL, (match, mention) => {
 		mentions.add(mention)
 		if (mention.startsWith("http")) {
 			return `'${mention}' (see below for site content)`
@@ -111,73 +180,4 @@ export async function parseMentions(text: string, cwd: string, urlContentFetcher
 	}
 
 	return parsedText
-}
-
-async function getFileOrFolderContent(mentionPath: string, cwd: string): Promise<string> {
-	const absPath = path.resolve(cwd, mentionPath)
-
-	try {
-		const stats = await fs.stat(absPath)
-
-		if (stats.isFile()) {
-			const isBinary = await isBinaryFile(absPath).catch(() => false)
-			if (isBinary) {
-				return "(Binary file, unable to display content)"
-			}
-			const content = await extractTextFromFile(absPath)
-			return content
-		} else if (stats.isDirectory()) {
-			const entries = await fs.readdir(absPath, { withFileTypes: true })
-			let folderContent = ""
-			const fileContentPromises: Promise<string | undefined>[] = []
-			entries.forEach((entry, index) => {
-				const isLast = index === entries.length - 1
-				const linePrefix = isLast ? "└── " : "├── "
-				if (entry.isFile()) {
-					folderContent += `${linePrefix}${entry.name}\n`
-					const filePath = path.join(mentionPath, entry.name)
-					const absoluteFilePath = path.resolve(absPath, entry.name)
-					// const relativeFilePath = path.relative(cwd, absoluteFilePath);
-					fileContentPromises.push(
-						(async () => {
-							try {
-								const isBinary = await isBinaryFile(absoluteFilePath).catch(() => false)
-								if (isBinary) {
-									return undefined
-								}
-								const content = await extractTextFromFile(absoluteFilePath)
-								return `<file_content path="${filePath.toPosix()}">\n${content}\n</file_content>`
-							} catch (error) {
-								return undefined
-							}
-						})()
-					)
-				} else if (entry.isDirectory()) {
-					folderContent += `${linePrefix}${entry.name}/\n`
-					// not recursively getting folder contents
-				} else {
-					folderContent += `${linePrefix}${entry.name}\n`
-				}
-			})
-			const fileContents = (await Promise.all(fileContentPromises)).filter((content) => content)
-			return `${folderContent}\n${fileContents.join("\n\n")}`.trim()
-		} else {
-			return `(Failed to read contents of ${mentionPath})`
-		}
-	} catch (error) {
-		throw new Error(`Failed to access path "${mentionPath}": ${error.message}`)
-	}
-}
-
-function getWorkspaceProblems(cwd: string): string {
-	const diagnostics = vscode.languages.getDiagnostics()
-	const result = diagnosticsToProblemsString(
-		diagnostics,
-		[vscode.DiagnosticSeverity.Error, vscode.DiagnosticSeverity.Warning],
-		cwd
-	)
-	if (!result) {
-		return "No errors or warnings detected."
-	}
-	return result
 }

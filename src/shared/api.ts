@@ -241,7 +241,6 @@ export const geminiModels = {
 export type OpenAiNativeModelId = keyof typeof openAiNativeModels
 export const openAiNativeDefaultModelId: OpenAiNativeModelId = "gpt-4o"
 export const openAiNativeModels = {
-	// don't support tool use yet
 	"o1-preview": {
 		maxTokens: 32_768,
 		contextWindow: 128_000,

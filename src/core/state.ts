@@ -1,14 +1,13 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import fs from "fs/promises"
 import path from "path"
-import { findLastIndex } from "../shared/array"
-import { combineApiRequests } from "../shared/combineApiRequests"
-import { combineCommandSequences } from "../shared/combineCommandSequences"
-import { ClineMessage } from "../shared/ExtensionMessage"
-import { getApiMetrics } from "../shared/getApiMetrics"
+import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
+import { ClineMessage } from "../shared/interfaces"
+import { getApiMetrics } from "../shared/metrics"
 import { AssistantMessageContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { ensureTaskDirectoryExists } from "../utils/fs"
+import { findLastIndex } from "../utils/helpers"
 
 /**
  * Manages conversation-related state including message history and metrics

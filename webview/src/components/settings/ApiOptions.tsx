@@ -27,7 +27,7 @@ import {
   vertexDefaultModelId,
   vertexModels,
 } from "../../../../src/shared/api"
-import { ExtensionMessage } from "../../../../src/shared/ExtensionMessage"
+import { ExtensionMessage } from "../../../../src/shared/interfaces"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
 import VSCodeButtonLink from "../common/VSCodeButtonLink"
