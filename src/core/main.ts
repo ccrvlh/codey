@@ -14,16 +14,15 @@ import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
-import { ApiConfiguration } from "../shared/api"
 import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
 import {
-	ClineApiReqCancelReason,
+	ApiConfiguration, ClineApiReqCancelReason,
 	ClineApiReqInfo,
 	ClineAsk,
+	ClineAskResponse,
 	ClineMessage,
 	ClineSay, HistoryItem
 } from "../shared/interfaces"
-import { ClineAskResponse } from "../shared/iterfaces"
 import { getApiMetrics } from "../shared/metrics"
 import { AssistantMessageContent, TextContent, ToolResponse, ToolUse, ToolUseName, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"

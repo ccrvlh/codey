@@ -1,8 +1,8 @@
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import React, { memo, useEffect, useMemo, useRef, useState } from "react"
 import { useWindowSize } from "react-use"
-import { mentionRegexGlobal } from "../../../../src/shared/context-mentions"
 import { ClineMessage } from "../../../../src/shared/interfaces"
+import { MENTION_REGEX_GLOBAL } from "../../../../src/shared/mentions"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { formatLargeNumber } from "../../utils/format"
 import { vscode } from "../../utils/vscode"
@@ -339,7 +339,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 
 export const highlightMentions = (text?: string, withShadow = true) => {
   if (!text) return text
-  const parts = text.split(mentionRegexGlobal)
+  const parts = text.split(MENTION_REGEX_GLOBAL)
   return parts.map((part, index) => {
     if (index % 2 === 0) {
       // This is regular text

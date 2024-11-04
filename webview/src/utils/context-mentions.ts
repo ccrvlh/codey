@@ -1,4 +1,4 @@
-import { mentionRegex } from "../../../src/shared/context-mentions";
+import { MENTION_REGEX_GLOBAL } from "../../../src/shared/mentions";
 
 export function insertMention(
 	text: string,
@@ -33,7 +33,7 @@ export function removeMention(text: string, position: number): { newText: string
 	const afterCursor = text.slice(position)
 
 	// Check if we're at the end of a mention
-	const matchEnd = beforeCursor.match(new RegExp(mentionRegex.source + "$"))
+	const matchEnd = beforeCursor.match(new RegExp(MENTION_REGEX_GLOBAL.source + "$"))
 
 	if (matchEnd) {
 		// If we're at the end of a mention, remove it

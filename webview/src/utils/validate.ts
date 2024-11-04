@@ -1,4 +1,5 @@
-import { ApiConfiguration, ModelInfo, openRouterDefaultModelId } from "../../../src/shared/api"
+import { openRouterDefaultModelId } from "../../../src/shared/api"
+import { ApiConfiguration, ModelInfo } from "../../../src/shared/interfaces"
 
 export function validateApiConfiguration(apiConfiguration?: ApiConfiguration): string | undefined {
 	if (apiConfiguration) {
@@ -59,7 +60,7 @@ export function validateModelId(
 	if (apiConfiguration) {
 		switch (apiConfiguration.apiProvider) {
 			case "openrouter":
-				const modelId = apiConfiguration.openRouterModelId || openRouterDefaultModelId // in case the user hasn't changed the model id, it will be undefined by default
+				const modelId = apiConfiguration.openRouterModelId || openRouterDefaultModelId
 				if (!modelId) {
 					return "You must provide a model ID."
 				}

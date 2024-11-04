@@ -1,6 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import DynamicTextArea from "react-textarea-autosize"
-import { mentionRegex, mentionRegexGlobal } from "../../../../src/shared/context-mentions"
+import { MENTION_REGEX, MENTION_REGEX_GLOBAL } from "../../../../src/shared/mentions"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import {
   ContextMenuOptionType,
@@ -201,7 +201,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
           // checks if char before cusor is whitespace after a mention
           if (
             charBeforeIsWhitespace &&
-            inputValue.slice(0, cursorPosition - 1).match(new RegExp(mentionRegex.source + "$")) // "$" is added to ensure the match occurs at the end of the string
+            inputValue.slice(0, cursorPosition - 1).match(new RegExp(MENTION_REGEX.source + "$")) // "$" is added to ensure the match occurs at the end of the string
           ) {
             const newCursorPosition = cursorPosition - 1
             // if mention is followed by another word, then instead of deleting the space separating them we just move the cursor to the end of the mention
@@ -380,7 +380,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
       highlightLayerRef.current.innerHTML = text
         .replace(/\n$/, "\n\n")
         .replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] || c))
-        .replace(mentionRegexGlobal, '<mark class="mention-context-textarea-highlight">$&</mark>')
+        .replace(MENTION_REGEX_GLOBAL, '<mark class="mention-context-textarea-highlight">$&</mark>')
 
       highlightLayerRef.current.scrollTop = textAreaRef.current.scrollTop
       highlightLayerRef.current.scrollLeft = textAreaRef.current.scrollLeft

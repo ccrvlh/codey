@@ -1,5 +1,5 @@
 import type { WebviewApi } from "vscode-webview"
-import { WebviewMessage } from "../../../src/shared/iterfaces"
+import { WebviewMessage } from "../../../src/shared/interfaces"
 
 /**
  * A utility wrapper around the acquireVsCodeApi() function, which enables
