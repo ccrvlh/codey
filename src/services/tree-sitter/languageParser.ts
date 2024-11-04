@@ -1,18 +1,18 @@
 import * as path from "path"
 import Parser from "web-tree-sitter"
 import {
-	javascriptQuery,
-	typescriptQuery,
-	pythonQuery,
-	rustQuery,
-	goQuery,
 	cppQuery,
 	cQuery,
 	csharpQuery,
-	rubyQuery,
+	goQuery,
 	javaQuery,
+	javascriptQuery,
 	phpQuery,
+	pythonQuery,
+	rubyQuery,
+	rustQuery,
 	swiftQuery,
+	typescriptQuery,
 } from "./queries"
 
 export interface LanguageParser {
@@ -36,27 +36,27 @@ async function initializeParser() {
 }
 
 /*
-Using node bindings for tree-sitter is problematic in vscode extensions 
-because of incompatibility with electron. Going the .wasm route has the 
-advantage of not having to build for multiple architectures.
+	Using node bindings for tree-sitter is problematic in vscode extensions 
+	because of incompatibility with electron. Going the .wasm route has the 
+	advantage of not having to build for multiple architectures.
 
-We use web-tree-sitter and tree-sitter-wasms which provides auto-updating prebuilt WASM binaries for tree-sitter's language parsers.
+	We use web-tree-sitter and tree-sitter-wasms which provides auto-updating prebuilt WASM binaries for tree-sitter's language parsers.
 
-This function loads WASM modules for relevant language parsers based on input files:
-1. Extracts unique file extensions
-2. Maps extensions to language names
-3. Loads corresponding WASM files (containing grammar rules)
-4. Uses WASM modules to initialize tree-sitter parsers
+	This function loads WASM modules for relevant language parsers based on input files:
+	1. Extracts unique file extensions
+	2. Maps extensions to language names
+	3. Loads corresponding WASM files (containing grammar rules)
+	4. Uses WASM modules to initialize tree-sitter parsers
 
-This approach optimizes performance by loading only necessary parsers once for all relevant files.
+	This approach optimizes performance by loading only necessary parsers once for all relevant files.
 
-Sources:
-- https://github.com/tree-sitter/node-tree-sitter/issues/169
-- https://github.com/tree-sitter/node-tree-sitter/issues/168
-- https://github.com/Gregoor/tree-sitter-wasms/blob/main/README.md
-- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/README.md
-- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/query-test.js
-*/
+	Sources:
+	- https://github.com/tree-sitter/node-tree-sitter/issues/169
+	- https://github.com/tree-sitter/node-tree-sitter/issues/168
+	- https://github.com/Gregoor/tree-sitter-wasms/blob/main/README.md
+	- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/README.md
+	- https://github.com/tree-sitter/tree-sitter/blob/master/lib/binding_web/test/query-test.js
+	*/
 export async function loadRequiredLanguageParsers(filesToParse: string[]): Promise<LanguageParser> {
 	await initializeParser()
 	const extensionsToLoad = new Set(filesToParse.map((file) => path.extname(file).toLowerCase().slice(1)))
