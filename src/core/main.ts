@@ -49,7 +49,6 @@ export class Cline {
 	api: ApiHandler
 	urlContentFetcher: UrlContentFetcher
 	config: ClineConfig
-	maxFileListLines: number = 100 // Maximum number of file lines to show in environment details
 
 	// State
 	apiConversationHistory: Anthropic.MessageParam[] = []
@@ -99,7 +98,7 @@ export class Cline {
 		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
 		this.diffViewProvider = new DiffViewProvider(this.cwd)
-		this.toolExecutor = new ToolExecutor(this, this.cwd, this.diffViewProvider)
+		this.toolExecutor = new ToolExecutor(this, this.config, this.cwd, this.diffViewProvider)
 
 		if (historyItem) {
 			this.taskId = historyItem.id

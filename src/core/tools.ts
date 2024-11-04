@@ -14,6 +14,7 @@ import { ClineAsk, ClineSayTool } from "../shared/ExtensionMessage"
 import { ToolParamName, ToolResponse, ToolUse } from "../types"
 import { fileExistsAtPath } from "../utils/fs"
 import { getReadablePath } from "../utils/path"
+import { ClineConfig } from "./config"
 import { formatResponse } from "./formatter"
 import { Cline } from "./main"
 
@@ -22,9 +23,11 @@ export class ToolExecutor {
   private diffViewProvider: DiffViewProvider
   private cwd: string
   private cline: Cline
+  private config: ClineConfig
 
-  constructor(cline: Cline, cwd: string, diffViewProvider: DiffViewProvider) {
+  constructor(cline: Cline, config: ClineConfig, cwd: string, diffViewProvider: DiffViewProvider) {
     this.cline = cline
+    this.config = config
     this.cwd = cwd
     this.diffViewProvider = diffViewProvider
   }
@@ -142,7 +145,7 @@ export class ToolExecutor {
           await this.diffViewProvider.open(relPath)
         }
         // editor is open, stream content in
-        await this.diffViewProvider.update(newContent, false, this.cline.config.editAutoScroll)
+        await this.diffViewProvider.update(newContent, false, this.config.editAutoScroll)
         return
       }
       if (!relPath) {
@@ -172,7 +175,7 @@ export class ToolExecutor {
         await this.cline.ask("tool", partialMessage, true).catch(() => { })
         await this.diffViewProvider.open(relPath)
       }
-      await this.diffViewProvider.update(newContent, true, this.cline.config.editAutoScroll)
+      await this.diffViewProvider.update(newContent, true, this.config.editAutoScroll)
       await delay(300) // wait for diff view to update
       this.diffViewProvider.scrollToFirstDiff()
       showOmissionWarning(this.diffViewProvider.originalContent || "", newContent)
@@ -239,7 +242,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: undefined,
         } satisfies ClineSayTool)
-        if (this.cline.config.alwaysAllowReadOnly) {
+        if (this.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -257,7 +260,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: absolutePath,
       } satisfies ClineSayTool)
-      if (this.cline.config.alwaysAllowReadOnly) {
+      if (this.config.alwaysAllowReadOnly) {
         // need to be sending partialValue bool
         // since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
         // but as a single complete message
@@ -304,7 +307,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: "",
         } satisfies ClineSayTool)
-        if (this.cline.config.alwaysAllowReadOnly) {
+        if (this.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -324,7 +327,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: result,
       } satisfies ClineSayTool)
-      if (this.cline.config.alwaysAllowReadOnly) {
+      if (this.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -353,7 +356,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: "",
         } satisfies ClineSayTool)
-        if (this.cline.config.alwaysAllowReadOnly) {
+        if (this.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -374,7 +377,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: result,
       } satisfies ClineSayTool)
-      if (this.cline.config.alwaysAllowReadOnly) {
+      if (this.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -407,7 +410,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: "",
         } satisfies ClineSayTool)
-        if (this.cline.config.alwaysAllowReadOnly) {
+        if (this.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -431,7 +434,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: results,
       } satisfies ClineSayTool)
-      if (this.cline.config.alwaysAllowReadOnly) {
+      if (this.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -457,7 +460,7 @@ export class ToolExecutor {
     try {
       if (block.partial) {
         const partialMessage = JSON.stringify(sharedMessageProps)
-        if (this.cline.config.alwaysAllowReadOnly) {
+        if (this.config.alwaysAllowReadOnly) {
           await this.cline.say("tool", partialMessage, undefined, block.partial)
         } else {
           await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
@@ -471,7 +474,7 @@ export class ToolExecutor {
       }
       this.cline.consecutiveMistakeCount = 0
       const completeMessage = JSON.stringify(sharedMessageProps)
-      if (this.cline.config.alwaysAllowReadOnly) {
+      if (this.config.alwaysAllowReadOnly) {
         await this.cline.say("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
@@ -958,13 +961,13 @@ export class ToolExecutor {
         });
         // First open with original content
         await this.diffViewProvider.open(relPath);
-        await this.diffViewProvider.update(fileContent, false, this.cline.config.editAutoScroll, true);
+        await this.diffViewProvider.update(fileContent, false, this.config.editAutoScroll, true);
         this.diffViewProvider.scrollEditorToLine(targetLine);
         await delay(200);
       }
 
       console.debug("Updating diff view with new content.");
-      await this.diffViewProvider.update(updatedContent, true, this.cline.config.editAutoScroll, true);
+      await this.diffViewProvider.update(updatedContent, true, this.config.editAutoScroll, true);
 
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
