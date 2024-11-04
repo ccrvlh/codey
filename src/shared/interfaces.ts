@@ -1,6 +1,4 @@
 // type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
-import { ApiConfiguration, ModelInfo } from "./api"
-
 
 // webview will hold state
 export interface ExtensionMessage {
@@ -153,3 +151,54 @@ export interface WebviewMessage {
 }
 
 export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
+
+export type ApiProvider =
+  | "anthropic"
+  | "openrouter"
+  | "bedrock"
+  | "vertex"
+  | "openai"
+  | "ollama"
+  | "gemini"
+  | "openai-native"
+
+export interface ApiHandlerOptions {
+  apiModelId?: string
+  apiKey?: string // anthropic
+  anthropicBaseUrl?: string
+  openRouterApiKey?: string
+  openRouterModelId?: string
+  openRouterModelInfo?: ModelInfo
+  awsAccessKey?: string
+  awsSecretKey?: string
+  awsSessionToken?: string
+  awsRegion?: string
+  vertexProjectId?: string
+  vertexRegion?: string
+  openAiBaseUrl?: string
+  openAiApiKey?: string
+  openAiModelId?: string
+  ollamaModelId?: string
+  ollamaBaseUrl?: string
+  geminiApiKey?: string
+  openAiNativeApiKey?: string
+  azureApiVersion?: string
+}
+
+export type ApiConfiguration = ApiHandlerOptions & {
+  apiProvider?: ApiProvider
+}
+
+// Models
+
+export interface ModelInfo {
+  maxTokens?: number
+  contextWindow?: number
+  supportsImages?: boolean
+  supportsPromptCache: boolean // this value is hardcoded for now
+  inputPrice?: number
+  outputPrice?: number
+  cacheWritesPrice?: number
+  cacheReadsPrice?: number
+  description?: string
+}

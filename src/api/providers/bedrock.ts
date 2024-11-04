@@ -1,8 +1,51 @@
 import AnthropicBedrock from "@anthropic-ai/bedrock-sdk"
 import { Anthropic } from "@anthropic-ai/sdk"
 import { ApiHandler } from "../"
-import { ApiHandlerOptions, bedrockDefaultModelId, BedrockModelId, bedrockModels, ModelInfo } from "../../shared/api"
+import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { ApiStream } from "../transform/stream"
+
+// AWS Bedrock
+// https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html
+type BedrockModelId = keyof typeof MODELS
+
+const DEFAULT_MODEL_ID: BedrockModelId = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+const MODELS = {
+	"anthropic.claude-3-5-sonnet-20241022-v2:0": {
+		maxTokens: 8192,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 3.0,
+		outputPrice: 15.0,
+	},
+	"anthropic.claude-3-5-sonnet-20240620-v1:0": {
+		maxTokens: 8192,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 3.0,
+		outputPrice: 15.0,
+	},
+	"anthropic.claude-3-opus-20240229-v1:0": {
+		maxTokens: 4096,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 15.0,
+		outputPrice: 75.0,
+	},
+	"anthropic.claude-3-haiku-20240307-v1:0": {
+		maxTokens: 4096,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0.25,
+		outputPrice: 1.25,
+	},
+} as const satisfies Record<string, ModelInfo>
+
+
 
 // https://docs.anthropic.com/en/api/claude-on-amazon-bedrock
 export class AwsBedrockHandler implements ApiHandler {
@@ -83,10 +126,10 @@ export class AwsBedrockHandler implements ApiHandler {
 
 	getModel(): { id: BedrockModelId; info: ModelInfo } {
 		const modelId = this.options.apiModelId
-		if (modelId && modelId in bedrockModels) {
+		if (modelId && modelId in MODELS) {
 			const id = modelId as BedrockModelId
-			return { id, info: bedrockModels[id] }
+			return { id, info: MODELS[id] }
 		}
-		return { id: bedrockDefaultModelId, info: bedrockModels[bedrockDefaultModelId] }
+		return { id: DEFAULT_MODEL_ID, info: MODELS[DEFAULT_MODEL_ID] }
 	}
 }

@@ -1,13 +1,13 @@
 import { Anthropic } from "@anthropic-ai/sdk"
-import { ApiConfiguration, ModelInfo } from "../shared/api"
+import { ApiConfiguration, ModelInfo } from "../shared/interfaces"
 import { AnthropicHandler } from "./providers/anthropic"
 import { AwsBedrockHandler } from "./providers/bedrock"
+import { GeminiHandler } from "./providers/gemini"
+import { OllamaHandler } from "./providers/ollama"
+import { OpenAiHandler } from "./providers/openai"
+import { OpenAiNativeHandler } from "./providers/openai-native"
 import { OpenRouterHandler } from "./providers/openrouter"
 import { VertexHandler } from "./providers/vertex"
-import { OpenAiHandler } from "./providers/openai"
-import { OllamaHandler } from "./providers/ollama"
-import { GeminiHandler } from "./providers/gemini"
-import { OpenAiNativeHandler } from "./providers/openai-native"
 import { ApiStream } from "./transform/stream"
 
 export interface ApiHandler {

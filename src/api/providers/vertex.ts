@@ -1,8 +1,51 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk"
 import { ApiHandler } from "../"
-import { ApiHandlerOptions, ModelInfo, vertexDefaultModelId, VertexModelId, vertexModels } from "../../shared/api"
+
+import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { ApiStream } from "../transform/stream"
+
+// Vertex AI
+// https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude
+type VertexModelId = keyof typeof MODELS
+
+const DEFAULT_MODEL_ID: VertexModelId = "claude-3-5-sonnet-v2@20241022"
+
+const MODELS = {
+	"claude-3-5-sonnet-v2@20241022": {
+		maxTokens: 8192,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 3.0,
+		outputPrice: 15.0,
+	},
+	"claude-3-5-sonnet@20240620": {
+		maxTokens: 8192,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 3.0,
+		outputPrice: 15.0,
+	},
+	"claude-3-opus@20240229": {
+		maxTokens: 4096,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 15.0,
+		outputPrice: 75.0,
+	},
+	"claude-3-haiku@20240307": {
+		maxTokens: 4096,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0.25,
+		outputPrice: 1.25,
+	},
+} as const satisfies Record<string, ModelInfo>
+
 
 // https://docs.anthropic.com/en/api/claude-on-vertex-ai
 export class VertexHandler implements ApiHandler {
@@ -77,10 +120,10 @@ export class VertexHandler implements ApiHandler {
 
 	getModel(): { id: VertexModelId; info: ModelInfo } {
 		const modelId = this.options.apiModelId
-		if (modelId && modelId in vertexModels) {
+		if (modelId && modelId in MODELS) {
 			const id = modelId as VertexModelId
-			return { id, info: vertexModels[id] }
+			return { id, info: MODELS[id] }
 		}
-		return { id: vertexDefaultModelId, info: vertexModels[vertexDefaultModelId] }
+		return { id: DEFAULT_MODEL_ID, info: MODELS[DEFAULT_MODEL_ID] }
 	}
 }

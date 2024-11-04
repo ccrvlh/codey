@@ -1,14 +1,46 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { Stream as AnthropicStream } from "@anthropic-ai/sdk/streaming"
-import {
-	anthropicDefaultModelId,
-	AnthropicModelId,
-	anthropicModels,
-	ApiHandlerOptions,
-	ModelInfo,
-} from "../../shared/api"
+import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { ApiHandler } from "../index"
 import { ApiStream } from "../transform/stream"
+
+
+const DEFAULT_MODEL_ID = "claude-3-5-sonnet-20241022"
+
+const MODELS = {
+	"claude-3-5-sonnet-20241022": {
+		maxTokens: 8192,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: true,
+		inputPrice: 3.0, // $3 per million input tokens
+		outputPrice: 15.0, // $15 per million output tokens
+		cacheWritesPrice: 3.75, // $3.75 per million tokens
+		cacheReadsPrice: 0.3, // $0.30 per million tokens
+	},
+	"claude-3-opus-20240229": {
+		maxTokens: 4096,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: true,
+		inputPrice: 15.0,
+		outputPrice: 75.0,
+		cacheWritesPrice: 18.75,
+		cacheReadsPrice: 1.5,
+	},
+	"claude-3-haiku-20240307": {
+		maxTokens: 4096,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: true,
+		inputPrice: 0.25,
+		outputPrice: 1.25,
+		cacheWritesPrice: 0.3,
+		cacheReadsPrice: 0.03,
+	},
+} as const satisfies Record<string, ModelInfo>
+
+type MODEL_ID = keyof typeof MODELS
 
 export class AnthropicHandler implements ApiHandler {
 	private options: ApiHandlerOptions
@@ -167,12 +199,12 @@ export class AnthropicHandler implements ApiHandler {
 		}
 	}
 
-	getModel(): { id: AnthropicModelId; info: ModelInfo } {
+	getModel(): { id: MODEL_ID; info: ModelInfo } {
 		const modelId = this.options.apiModelId
-		if (modelId && modelId in anthropicModels) {
-			const id = modelId as AnthropicModelId
-			return { id, info: anthropicModels[id] }
+		if (modelId && modelId in MODELS) {
+			const id = modelId as MODEL_ID
+			return { id, info: MODELS[id] }
 		}
-		return { id: anthropicDefaultModelId, info: anthropicModels[anthropicDefaultModelId] }
+		return { id: DEFAULT_MODEL_ID, info: MODELS[DEFAULT_MODEL_ID] }
 	}
 }

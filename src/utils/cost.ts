@@ -1,4 +1,4 @@
-import { ModelInfo } from "../shared/api"
+import { ModelInfo } from "../shared/interfaces"
 
 export function calculateApiCost(
 	modelInfo: ModelInfo,

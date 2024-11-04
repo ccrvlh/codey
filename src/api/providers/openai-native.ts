@@ -1,15 +1,49 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import OpenAI from "openai"
 import { ApiHandler } from "../"
-import {
-	ApiHandlerOptions,
-	ModelInfo,
-	openAiNativeDefaultModelId,
-	OpenAiNativeModelId,
-	openAiNativeModels,
-} from "../../shared/api"
+import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
+
+// OpenAI Native
+// https://openai.com/api/pricing/
+type OpenAiNativeModelId = keyof typeof MODELS
+const DEFAULT_MODEL_ID: OpenAiNativeModelId = "gpt-4o"
+const MODELS = {
+	"o1-preview": {
+		maxTokens: 32_768,
+		contextWindow: 128_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 15,
+		outputPrice: 60,
+	},
+	"o1-mini": {
+		maxTokens: 65_536,
+		contextWindow: 128_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 3,
+		outputPrice: 12,
+	},
+	"gpt-4o": {
+		maxTokens: 4_096,
+		contextWindow: 128_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 5,
+		outputPrice: 15,
+	},
+	"gpt-4o-mini": {
+		maxTokens: 16_384,
+		contextWindow: 128_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0.15,
+		outputPrice: 0.6,
+	},
+} as const satisfies Record<string, ModelInfo>
+
 
 export class OpenAiNativeHandler implements ApiHandler {
 	private options: ApiHandlerOptions
@@ -76,10 +110,10 @@ export class OpenAiNativeHandler implements ApiHandler {
 
 	getModel(): { id: OpenAiNativeModelId; info: ModelInfo } {
 		const modelId = this.options.apiModelId
-		if (modelId && modelId in openAiNativeModels) {
+		if (modelId && modelId in MODELS) {
 			const id = modelId as OpenAiNativeModelId
-			return { id, info: openAiNativeModels[id] }
+			return { id, info: MODELS[id] }
 		}
-		return { id: openAiNativeDefaultModelId, info: openAiNativeModels[openAiNativeDefaultModelId] }
+		return { id: DEFAULT_MODEL_ID, info: MODELS[DEFAULT_MODEL_ID] }
 	}
 }

@@ -1,9 +1,59 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { ApiHandler } from "../"
-import { ApiHandlerOptions, geminiDefaultModelId, GeminiModelId, geminiModels, ModelInfo } from "../../shared/api"
+import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertAnthropicMessageToGemini } from "../transform/gemini-format"
 import { ApiStream } from "../transform/stream"
+
+// Gemini
+// https://ai.google.dev/gemini-api/docs/models/gemini
+type GeminiModelId = keyof typeof MODELS
+
+const DEFAULT_MODEL_ID: GeminiModelId = "gemini-1.5-flash-002"
+
+const MODELS = {
+	"gemini-1.5-flash-002": {
+		maxTokens: 8192,
+		contextWindow: 1_048_576,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+	},
+	"gemini-1.5-flash-exp-0827": {
+		maxTokens: 8192,
+		contextWindow: 1_048_576,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+	},
+	"gemini-1.5-flash-8b-exp-0827": {
+		maxTokens: 8192,
+		contextWindow: 1_048_576,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+	},
+	"gemini-1.5-pro-002": {
+		maxTokens: 8192,
+		contextWindow: 2_097_152,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+	},
+	"gemini-1.5-pro-exp-0827": {
+		maxTokens: 8192,
+		contextWindow: 2_097_152,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 0,
+		outputPrice: 0,
+	},
+} as const satisfies Record<string, ModelInfo>
+
 
 export class GeminiHandler implements ApiHandler {
 	private options: ApiHandlerOptions
@@ -47,10 +97,10 @@ export class GeminiHandler implements ApiHandler {
 
 	getModel(): { id: GeminiModelId; info: ModelInfo } {
 		const modelId = this.options.apiModelId
-		if (modelId && modelId in geminiModels) {
+		if (modelId && modelId in MODELS) {
 			const id = modelId as GeminiModelId
-			return { id, info: geminiModels[id] }
+			return { id, info: MODELS[id] }
 		}
-		return { id: geminiDefaultModelId, info: geminiModels[geminiDefaultModelId] }
+		return { id: DEFAULT_MODEL_ID, info: MODELS[DEFAULT_MODEL_ID] }
 	}
 }
