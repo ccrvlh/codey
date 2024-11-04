@@ -124,6 +124,7 @@ export type GlobalStateKey =
   | "vertexRegion"
   | "lastShownAnnouncementId"
   | "customInstructions"
+  | "customInstructionsMode"
   | "alwaysAllowReadOnly"
   | "editAutoScroll"
   | "taskHistory"

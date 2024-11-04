@@ -19,26 +19,17 @@ import { GlobalStateKey, SecretKey } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { fileExistsAtPath } from "../utils/fs"
 import { getNonce, getUri } from "../utils/helpers"
+import { ConfigManager } from "./config"
 import { Cline } from "./main"
 import { openMention } from "./mentions"
 
-/*
-https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
-
-https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
-*/
-
-
 
 export class ClineProvider implements vscode.WebviewViewProvider {
-	// used in package.json as the view's id.
-	// This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
-	public static readonly sideBarId = "claude-dev.SidebarProvider"
-	public static readonly tabPanelId = "claude-dev.TabPanelProvider"
 	private static activeInstances: Set<ClineProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
 	private view?: vscode.WebviewView | vscode.WebviewPanel
 	private cline?: Cline
+	private configManager: ConfigManager
 	private workspaceTracker?: WorkspaceTracker
 	private latestAnnouncementId = "oct-9-2024" // update to some unique identifier when we add a new announcement
 
@@ -46,6 +37,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		this.outputChannel.appendLine("ClineProvider instantiated")
 		ClineProvider.activeInstances.add(this)
 		this.workspaceTracker = new WorkspaceTracker(this)
+		this.configManager = new ConfigManager(context)
 	}
 
 	/*
@@ -148,37 +140,41 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.disposables
 		)
 
-		// if the extension is starting a new session, clear previous task state
 		this.clearTask()
-
 		this.outputChannel.appendLine("Webview view resolved")
 	}
 
 	async initClineWithTask(task?: string, images?: string[]) {
-		// ensures that an exising task doesn't exist before starting a new one,
-		// although this shouldn't be possible since user must clear task before starting a new one
 		await this.clearTask()
-		const { apiConfiguration, customInstructions, alwaysAllowReadOnly, editAutoScroll } = await this.getState()
-		this.cline = new Cline(this, apiConfiguration, customInstructions, task, images, undefined, { alwaysAllowReadOnly, editAutoScroll })
+		const { apiConfiguration } = await this.getState()
+		const config = await this.configManager.getConfig()
+		this.cline = new Cline(this, apiConfiguration, config, task, images, undefined)
 	}
 
 	async initClineWithHistoryItem(historyItem: HistoryItem) {
 		await this.clearTask()
-		const { apiConfiguration, customInstructions, alwaysAllowReadOnly, editAutoScroll } = await this.getState()
+		const { apiConfiguration } = await this.getState()
+		const config = await this.configManager.getConfig()
 		this.cline = new Cline(
 			this,
 			apiConfiguration,
-			customInstructions,
+			config,
 			undefined,
 			undefined,
 			historyItem,
-			{ alwaysAllowReadOnly, editAutoScroll }
 		)
 	}
 
 	async postMessageToWebview(message: ExtensionMessage) {
 		// Send any JSON serializable data to the react app
 		await this.view?.webview.postMessage(message)
+	}
+
+	async updateCustomInstructions(instructions?: string) {
+		await this.updateGlobalState("customInstructions", instructions || "")
+		const config = await this.configManager.getConfig()
+		config.customInstructions = instructions || ""
+		await this.postStateToWebview()
 	}
 
 	/**
@@ -444,16 +440,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		)
 	}
 
-	async updateCustomInstructions(instructions?: string) {
-		// User may be clearing the field
-		await this.updateGlobalState("customInstructions", instructions || undefined)
-		if (this.cline) {
-			this.cline.customInstructions = instructions || undefined
-		}
-		await this.postStateToWebview()
-	}
-
-	// Ollama
+	// LLM Interfaces
 
 	async getOllamaModels(baseUrl?: string) {
 		try {
@@ -471,8 +458,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			return []
 		}
 	}
-
-	// OpenRouter
 
 	async handleOpenRouterCallback(code: string) {
 		let apiKey: string
@@ -496,12 +481,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.cline.api = buildApiHandler({ apiProvider: openrouter, openRouterApiKey: apiKey })
 		}
 		// await this.postMessageToWebview({ type: "action", action: "settingsButtonClicked" }) // bad ux if user is on welcome
-	}
-
-	private async ensureCacheDirectoryExists(): Promise<string> {
-		const cacheDir = path.join(this.context.globalStorageUri.fsPath, "cache")
-		await fs.mkdir(cacheDir, { recursive: true })
-		return cacheDir
 	}
 
 	async readOpenRouterModels(): Promise<Record<string, ModelInfo> | undefined> {
@@ -606,6 +585,12 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		}
 
 		await this.postMessageToWebview({ type: "openRouterModels", openRouterModels: models })
+	}
+
+	private async ensureCacheDirectoryExists(): Promise<string> {
+		const cacheDir = path.join(this.context.globalStorageUri.fsPath, "cache")
+		await fs.mkdir(cacheDir, { recursive: true })
+		return cacheDir
 	}
 
 	// Task history
@@ -715,52 +700,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		this.cline?.abortTask()
 		this.cline = undefined // removes reference to it, so once promises end it will be garbage collected
 	}
-
-	// Caching mechanism to keep track of webview messages + API conversation history per provider instance
-
-	/*
-	Now that we use retainContextWhenHidden, we don't have to store a cache of cline messages in the user's state, but we could to reduce memory footprint in long conversations.
-
-	- We have to be careful of what state is shared between ClineProvider instances since there could be multiple instances of the extension running at once. For example when we cached cline messages using the same key, two instances of the extension could end up using the same key and overwriting each other's messages.
-	- Some state does need to be shared between the instances, i.e. the API key--however there doesn't seem to be a good way to notfy the other instances that the API key has changed.
-
-	We need to use a unique identifier for each ClineProvider instance's message cache since we could be running several instances of the extension outside of just the sidebar i.e. in editor panels.
-
-	// conversation history to send in API requests
-
-	/*
-	It seems that some API messages do not comply with vscode state requirements. Either the Anthropic library is manipulating these values somehow in the backend in a way thats creating cyclic references, or the API returns a function or a Symbol as part of the message content.
-	VSCode docs about state: "The value must be JSON-stringifyable ... value — A value. MUST not contain cyclic references."
-	For now we'll store the conversation history in memory, and if we need to store in state directly we'd need to do a manual conversion to ensure proper json stringification.
-	*/
-
-	// getApiConversationHistory(): Anthropic.MessageParam[] {
-	// 	// const history = (await this.getGlobalState(
-	// 	// 	this.getApiConversationHistoryStateKey()
-	// 	// )) as Anthropic.MessageParam[]
-	// 	// return history || []
-	// 	return this.apiConversationHistory
-	// }
-
-	// setApiConversationHistory(history: Anthropic.MessageParam[] | undefined) {
-	// 	// await this.updateGlobalState(this.getApiConversationHistoryStateKey(), history)
-	// 	this.apiConversationHistory = history || []
-	// }
-
-	// addMessageToApiConversationHistory(message: Anthropic.MessageParam): Anthropic.MessageParam[] {
-	// 	// const history = await this.getApiConversationHistory()
-	// 	// history.push(message)
-	// 	// await this.setApiConversationHistory(history)
-	// 	// return history
-	// 	this.apiConversationHistory.push(message)
-	// 	return this.apiConversationHistory
-	// }
-
-	/*
-	Storage
-	https://dev.to/kompotkot/how-to-use-secretstorage-in-your-vscode-extensions-2hco
-	https://www.eliostruyf.com/devhack-code-extension-storage-options/
-	*/
 
 	async getState() {
 		const [
@@ -886,26 +825,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	async getGlobalState(key: GlobalStateKey) {
 		return await this.context.globalState.get(key)
 	}
-
-	// workspace
-
-	private async updateWorkspaceState(key: string, value: any) {
-		await this.context.workspaceState.update(key, value)
-	}
-
-	private async getWorkspaceState(key: string) {
-		return await this.context.workspaceState.get(key)
-	}
-
-	// private async clearState() {
-	// 	this.context.workspaceState.keys().forEach((key) => {
-	// 		this.context.workspaceState.update(key, undefined)
-	// 	})
-	// 	this.context.globalState.keys().forEach((key) => {
-	// 		this.context.globalState.update(key, undefined)
-	// 	})
-	// 	this.context.secrets.delete("apiKey")
-	// }
 
 	// secrets
 

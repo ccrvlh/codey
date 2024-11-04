@@ -1,5 +1,13 @@
-import { VSCodeButton, VSCodeCheckbox, VSCodeLink, VSCodeTextArea } from "@vscode/webview-ui-toolkit/react"
+import {
+  VSCodeButton,
+  VSCodeCheckbox,
+  VSCodeDropdown,
+  VSCodeLink,
+  VSCodeOption,
+  VSCodeTextArea,
+} from "@vscode/webview-ui-toolkit/react"
 import { memo, useEffect, useState } from "react"
+import { useConfig } from "../../context/ConfigContext"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "../../utils/validate"
 import { vscode } from "../../utils/vscode"
@@ -23,6 +31,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
     setEditAutoScroll,
     openRouterModels,
   } = useExtensionState()
+
+  const config = useConfig()
   const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
   const [modelIdErrorMessage, setModelIdErrorMessage] = useState<string | undefined>(undefined)
 
@@ -102,6 +112,35 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
           </p>
         </div>
 
+        <div className="dropdown-container">
+          <label htmlFor="instructions-placement">
+            <span style={{ fontWeight: 500 }}>Custom Instructions mode</span>
+          </label>
+          <div style={{ marginBottom: 5 }}>
+            <VSCodeDropdown
+              id="instructions-placement"
+              value={config.customInstructionsMode}
+              onChange={(e) =>
+                config.setCustomInstructionsMode(
+                  ((e.target as HTMLSelectElement)?.value ?? "system") as "system" | "user"
+                )
+              }
+              style={{ width: "100%", position: "relative" }}>
+              <VSCodeOption value="system">System Prompt</VSCodeOption>
+              <VSCodeOption value="user">User Message</VSCodeOption>
+            </VSCodeDropdown>
+            <p
+              style={{
+                fontSize: "12px",
+                marginTop: "5px",
+                color: "var(--vscode-descriptionForeground)",
+              }}>
+              Where to add the custom instructions. `System Prompt` will add the instructions to the end of the system
+              prompt, `User Message` will add the instructions at every user message.
+            </p>
+          </div>
+        </div>
+
         <div style={{ marginBottom: 5 }}>
           <VSCodeCheckbox checked={alwaysAllowReadOnly} onChange={(e: any) => setAlwaysAllowReadOnly(e.target.checked)}>
             <span style={{ fontWeight: "500" }}>Always approve read-only operations</span>
@@ -131,6 +170,53 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
             can follow changed in real time. Toggle this off if you want to manually scroll the editor during Cline's
             edit.
           </p>
+        </div>
+
+        <div style={{ marginBottom: 5 }}>
+          <VSCodeTextArea
+            value={config.maxFileLineThreshold?.toString() ?? ""}
+            style={{ width: "100%" }}
+            rows={1}
+            placeholder={"1000"}
+            onInput={(e) => config.setMaxFileLineThreshold(Number((e.target as HTMLSelectElement)?.value ?? 0))}>
+            <span style={{ fontWeight: "500" }}>Max Line Threshold</span>
+          </VSCodeTextArea>
+          <p
+            style={{
+              fontSize: "12px",
+              marginTop: "5px",
+              color: "var(--vscode-descriptionForeground)",
+            }}>
+            The maximum number of lines Cline will read from a file. If a file exceeds this threshold, Cline will read
+            the top level definitions of the file (eg. classes, functions, methods, etc.). Zero means no limit
+          </p>
+        </div>
+
+        <div className="dropdown-container">
+          <label htmlFor="directory-context">
+            <span style={{ fontWeight: 500 }}>Project Context Mode</span>
+          </label>
+          <div style={{ marginBottom: 5 }}>
+            <VSCodeDropdown
+              id="directory-context"
+              value={config.directoryContextMode}
+              onChange={(e) =>
+                config.setDirectoryContextMode(((e.target as HTMLSelectElement)?.value ?? "tree") as "files" | "tree")
+              }
+              style={{ width: "100%", position: "relative" }}>
+              <VSCodeOption value="files">Files</VSCodeOption>
+              <VSCodeOption value="tree">Directory Tree</VSCodeOption>
+            </VSCodeDropdown>
+            <p
+              style={{
+                fontSize: "12px",
+                marginTop: "5px",
+                color: "var(--vscode-descriptionForeground)",
+              }}>
+              How to give Cline context about the project. `Tree` will show the directory tree as in `tree -L 2` and
+              `Files` will show the files in the directory.
+            </p>
+          </div>
         </div>
 
         {IS_DEV && (

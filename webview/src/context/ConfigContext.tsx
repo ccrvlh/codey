@@ -3,7 +3,8 @@ import type { ClineConfig } from "../../../src/core/config"
 import { vscode } from "../utils/vscode"
 
 interface ConfigContextType extends ClineConfig {
-  setCustomInstructions: (value: string[]) => void
+  setCustomInstructions: (value: string) => void
+  setCustomInstructionsMode: (value: "system" | "user") => void
   setAlwaysAllowReadOnly: (value: boolean) => void
   setEditAutoScroll: (value: boolean) => void
   setMaxFileLineThreshold: (value: number) => void
@@ -17,7 +18,8 @@ const ConfigContext = createContext<ConfigContextType | undefined>(undefined)
 
 export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [config, setConfig] = useState<ClineConfig>({
-    customInstructions: [],
+    customInstructions: "",
+    customInstructionsMode: "system",
     alwaysAllowReadOnly: false,
     editAutoScroll: false,
     maxFileLineThreshold: 500,
@@ -34,7 +36,8 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
       if (message.type === "state") {
         setConfig((prevConfig) => ({
           ...prevConfig,
-          customInstructions: message.state.customInstructions ? [message.state.customInstructions] : [],
+          customInstructions: message.state.customInstructions ?? "",
+          customInstructionsMode: message.state.customInstructionsMode ?? "system",
           alwaysAllowReadOnly: message.state.alwaysAllowReadOnly ?? false,
           editAutoScroll: message.state.editAutoScroll ?? false,
           maxFileLineThreshold: message.state.maxFileLineThreshold ?? 500,
@@ -56,7 +59,14 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
       setConfig((prev) => ({ ...prev, customInstructions: value }))
       vscode.postMessage({
         type: "customInstructions",
-        text: value.join("\n"),
+        text: value,
+      })
+    },
+    setCustomInstructionsMode: (value) => {
+      setConfig((prev) => ({ ...prev, customInstructionsMode: value }))
+      vscode.postMessage({
+        type: "customInstructionsMode",
+        text: value,
       })
     },
     setAlwaysAllowReadOnly: (value) => {

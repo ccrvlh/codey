@@ -47,9 +47,8 @@ export class Cline {
 
 	// Declarations
 	api: ApiHandler
-	customInstructions?: string
 	urlContentFetcher: UrlContentFetcher
-	config: ClineConfig = {}
+	config: ClineConfig
 	maxFileListLines: number = 100 // Maximum number of file lines to show in environment details
 
 	// State
@@ -88,20 +87,18 @@ export class Cline {
 	constructor(
 		provider: ClineProvider,
 		apiConfiguration: ApiConfiguration,
-		customInstructions?: string,
+		config: ClineConfig,
 		task?: string,
 		images?: string[],
 		historyItem?: HistoryItem,
-		config?: ClineConfig
 	) {
 		this.providerRef = new WeakRef(provider)
 		this.globalStoragePath = this.providerRef.deref()?.context.globalStorageUri.fsPath ?? ""
 		this.api = buildApiHandler(apiConfiguration)
+		this.config = config
 		this.terminalManager = new TerminalManager()
 		this.urlContentFetcher = new UrlContentFetcher(provider.context)
 		this.diffViewProvider = new DiffViewProvider(this.cwd)
-		this.customInstructions = customInstructions
-		this.config = config ?? {}
 		this.toolExecutor = new ToolExecutor(this, this.cwd, this.diffViewProvider)
 
 		if (historyItem) {
@@ -852,7 +849,7 @@ export class Cline {
 				// don't want to immediately access desktop since it would show permission popup
 				details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
 			} else {
-				const [files, didHitLimit] = await listFiles(this.cwd, true, this.maxFileListLines)
+				const [files, didHitLimit] = await listFiles(this.cwd, true, this.config.maxFileLineThreshold)
 				const result = formatResponse.formatFilesList(this.cwd, files, didHitLimit)
 				details += result
 			}
@@ -910,10 +907,10 @@ export class Cline {
 	async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
 		const supportsImages = this.api.getModel().info.supportsImages ?? false
 		let systemPrompt = SYSTEM_PROMPT(this.cwd, supportsImages)
-		if (this.customInstructions && this.customInstructions.trim()) {
+		if (this.config.customInstructions && this.config.customInstructions.trim()) {
 			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often
 			// so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
-			systemPrompt += CUSTOM_USER_INSTRUCTIONS(this.customInstructions)
+			systemPrompt += CUSTOM_USER_INSTRUCTIONS(this.config.customInstructions)
 		}
 
 		// If the previous API request's total token usage is close to the context window,

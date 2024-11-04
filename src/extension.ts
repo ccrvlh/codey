@@ -5,6 +5,7 @@ import * as vscode from "vscode"
 import { ClineProvider } from "./core/webview"
 import { createClineAPI } from "./exports"
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
+import { SIDEBAR_ID, TAB_PANEL_ID } from "./utils/const"
 import "./utils/path"; // necessary to have access to String.prototype.toPosix
 
 /*
@@ -29,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const sidebarProvider = new ClineProvider(context, outputChannel)
 
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, sidebarProvider, {
+		vscode.window.registerWebviewViewProvider(SIDEBAR_ID, sidebarProvider, {
 			webviewOptions: { retainContextWhenHidden: true },
 		})
 	)
@@ -58,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 		const targetCol = hasVisibleEditors ? Math.max(lastCol + 1, 1) : vscode.ViewColumn.Two
 
-		const panel = vscode.window.createWebviewPanel(ClineProvider.tabPanelId, "Cline", targetCol, {
+		const panel = vscode.window.createWebviewPanel(TAB_PANEL_ID, "Cline", targetCol, {
 			enableScripts: true,
 			retainContextWhenHidden: true,
 			localResourceRoots: [context.extensionUri],
