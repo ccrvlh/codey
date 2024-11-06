@@ -1,4 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk"
+import Anthropic from "@anthropic-ai/sdk";
+import { ClineAskResponse } from "../shared/interfaces";
+
+
+export type AskUserResponse = {
+  response: ClineAskResponse;
+  text?: string;
+  images?: string[]
+}
 
 export type AssistantMessageContent = TextContent | ToolUse
 
