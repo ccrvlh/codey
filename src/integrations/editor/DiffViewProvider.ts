@@ -2,7 +2,7 @@ import * as diff from "diff"
 import * as fs from "fs/promises"
 import * as path from "path"
 import * as vscode from "vscode"
-import { formatResponse } from "../../core/formatter"
+import { responseTemplates } from "../../core/formatter"
 import { createDirectoriesForFile } from "../../utils/fs"
 import { arePathsEqual } from "../../utils/path"
 import { diagnosticsToProblemsString, getNewDiagnostics } from "../diagnostics"
@@ -195,7 +195,7 @@ export class DiffViewProvider {
 		const normalizedNewContent = this.newContent.replace(/\r\n|\n/g, newContentEOL).trimEnd() + newContentEOL
 		if (normalizedEditedContent !== normalizedNewContent) {
 			// user made changes before approving edit
-			const userEdits = formatResponse.createPrettyPatch(
+			const userEdits = responseTemplates.createPrettyPatch(
 				this.relPath.toPosix(),
 				normalizedNewContent,
 				normalizedEditedContent

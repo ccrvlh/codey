@@ -1,8 +1,6 @@
 // type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
 
-// webview will hold state
-export interface ExtensionMessage {
-  type:
+export type ExtensionMessageType =
   | "action"
   | "state"
   | "selectedImages"
@@ -12,6 +10,10 @@ export interface ExtensionMessage {
   | "invoke"
   | "partialMessage"
   | "openRouterModels"
+
+// webview will hold state
+export interface ExtensionMessage {
+  type: ExtensionMessageType
   text?: string
   action?: "chatButtonClicked" | "settingsButtonClicked" | "historyButtonClicked" | "didBecomeVisible"
   invoke?: "sendMessage" | "primaryButtonClick" | "secondaryButtonClick"

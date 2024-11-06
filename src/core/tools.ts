@@ -11,11 +11,11 @@ import { listFiles } from "../services/glob/list-files"
 import { regexSearchFiles } from "../services/ripgrep"
 import { parseSourceCodeForDefinitionsTopLevel } from "../services/tree-sitter"
 import { ClineAsk, ClineSayTool } from "../shared/interfaces"
-import { ToolParamName, ToolResponse, ToolUse } from "../types"
+import { ToolParamName, ToolResponse, ToolUse, ToolUseName } from "../types"
 import { fileExistsAtPath } from "../utils/fs"
 import { getReadablePath } from "../utils/path"
 import { ClineConfig } from "./config"
-import { formatResponse } from "./formatter"
+import { responseTemplates } from "./formatter"
 import { Cline } from "./main"
 
 export class ToolExecutor {
@@ -81,19 +81,19 @@ export class ToolExecutor {
   }
 
   async askApproval(block: ToolUse, type: ClineAsk, partialMessage?: string) {
-    const { response, text, images } = await this.cline.ask(type, partialMessage, false)
+    const { response, text, images } = await this.cline.askUser(type, partialMessage, false)
     if (response === "yesButtonClicked") {
       return true
     }
     if (response === "messageResponse") {
-      await this.cline.say("user_feedback", text, images)
+      await this.cline.sendMessage("user_feedback", text, images)
       this.cline.pushToolResult(block,
-        formatResponse.toolResult(formatResponse.toolDeniedWithFeedback(text), images)
+        responseTemplates.toolResult(responseTemplates.toolDeniedWithFeedback(text), images)
       )
       this.cline.didRejectTool = true
       return false
     }
-    this.cline.pushToolResult(block, formatResponse.toolDenied())
+    this.cline.pushToolResult(block, responseTemplates.toolDenied())
     this.cline.didRejectTool = true
     return false
 
@@ -101,11 +101,19 @@ export class ToolExecutor {
 
   async handleError(block: ToolUse, action: string, error: Error) {
     const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
-    await this.cline.say(
+    await this.cline.sendMessage(
       "error",
       `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`
     )
-    this.cline.pushToolResult(block, formatResponse.toolError(errorString))
+    this.cline.pushToolResult(block, responseTemplates.toolError(errorString))
+  }
+
+  async handleMissingParamError(toolName: ToolUseName, paramName: string, relPath?: string): Promise<string> {
+    const pathInfo = `${relPath ? ` for '${relPath.toPosix()}'` : ""}`
+    const detailedError = `Cline tried to use ${toolName}${pathInfo} without value for required parameter '${paramName}'. Retrying...`
+    await this.cline.sendMessage("error", detailedError)
+    const error = responseTemplates.missingToolParameterError(paramName)
+    return responseTemplates.toolError(error)
   }
 
   // Tools
@@ -138,7 +146,7 @@ export class ToolExecutor {
       if (block.partial) {
         // update gui message
         const partialMessage = JSON.stringify(sharedMessageProps)
-        await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
+        await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
         // update editor
         if (!this.diffViewProvider.isEditing) {
           // open the editor and prepare to stream content in
@@ -150,13 +158,13 @@ export class ToolExecutor {
       }
       if (!relPath) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("write_to_file", "path"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("write_to_file", "path"))
         await this.diffViewProvider.reset()
         return
       }
       if (!newContent) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("write_to_file", "content"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("write_to_file", "content"))
         await this.diffViewProvider.reset()
         return
       }
@@ -172,7 +180,7 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify(sharedMessageProps)
 
         // sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
-        await this.cline.ask("tool", partialMessage, true).catch(() => { })
+        await this.cline.askUser("tool", partialMessage, true).catch(() => { })
         await this.diffViewProvider.open(relPath)
       }
       await this.diffViewProvider.update(newContent, true, this.config.editAutoScroll)
@@ -184,7 +192,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: fileExists ? undefined : newContent,
         diff: fileExists
-          ? formatResponse.createPrettyPatch(
+          ? responseTemplates.createPrettyPatch(
             relPath,
             this.diffViewProvider.originalContent,
             newContent
@@ -209,7 +217,7 @@ export class ToolExecutor {
         path: getReadablePath(this.cwd, relPath),
         diff: userEdits,
       } satisfies ClineSayTool)
-      await this.cline.say("user_feedback_diff", userFeedbackDiff)
+      await this.cline.sendMessage("user_feedback_diff", userFeedbackDiff)
       this.cline.pushToolResult(block,
         `The user made the following updates to your content:\n\n${userEdits}\n\n` +
         `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
@@ -243,15 +251,15 @@ export class ToolExecutor {
           content: undefined,
         } satisfies ClineSayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.say("tool", partialMessage, undefined, block.partial)
+          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
+          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relPath) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("read_file", "path"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("read_file", "path"))
         return
       }
       this.cline.consecutiveMistakeCount = 0
@@ -264,7 +272,7 @@ export class ToolExecutor {
         // need to be sending partialValue bool
         // since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
         // but as a single complete message
-        await this.cline.say("tool", completeMessage, undefined, false)
+        await this.cline.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -308,27 +316,27 @@ export class ToolExecutor {
           content: "",
         } satisfies ClineSayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.say("tool", partialMessage, undefined, block.partial)
+          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
+          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relDirPath) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("list_files", "path"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("list_files", "path"))
         return
       }
       this.cline.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relDirPath)
       const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
-      const result = formatResponse.formatFilesList(absolutePath, files, didHitLimit)
+      const result = responseTemplates.formatFilesList(absolutePath, files, didHitLimit)
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
         content: result,
       } satisfies ClineSayTool)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.say("tool", completeMessage, undefined, false)
+        await this.cline.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -357,16 +365,16 @@ export class ToolExecutor {
           content: "",
         } satisfies ClineSayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.say("tool", partialMessage, undefined, block.partial)
+          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
+          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relDirPath) {
         this.cline.consecutiveMistakeCount++
         this.cline.pushToolResult(block,
-          await this.cline.sayAndCreateMissingParamError("list_code_definition_names", "path")
+          await this.handleMissingParamError("list_code_definition_names", "path")
         )
         return
       }
@@ -378,7 +386,7 @@ export class ToolExecutor {
         content: result,
       } satisfies ClineSayTool)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.say("tool", completeMessage, undefined, false)
+        await this.cline.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -411,20 +419,20 @@ export class ToolExecutor {
           content: "",
         } satisfies ClineSayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.say("tool", partialMessage, undefined, block.partial)
+          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
+          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relDirPath) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("search_files", "path"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("search_files", "path"))
         return
       }
       if (!regex) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("search_files", "regex"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("search_files", "regex"))
         return
       }
       this.cline.consecutiveMistakeCount = 0
@@ -435,7 +443,7 @@ export class ToolExecutor {
         content: results,
       } satisfies ClineSayTool)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.say("tool", completeMessage, undefined, false)
+        await this.cline.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -461,21 +469,21 @@ export class ToolExecutor {
       if (block.partial) {
         const partialMessage = JSON.stringify(sharedMessageProps)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.say("tool", partialMessage, undefined, block.partial)
+          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.ask("tool", partialMessage, block.partial).catch(() => { })
+          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!url) {
         this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("inspect_site", "url"))
+        this.cline.pushToolResult(block, await this.handleMissingParamError("inspect_site", "url"))
         return
       }
       this.cline.consecutiveMistakeCount = 0
       const completeMessage = JSON.stringify(sharedMessageProps)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.say("tool", completeMessage, undefined, false)
+        await this.cline.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -488,7 +496,7 @@ export class ToolExecutor {
       // The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array.
       // For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
       // no result, starts the loading spinner waiting for result
-      await this.cline.say("inspect_site_result", "")
+      await this.cline.sendMessage("inspect_site_result", "")
       await this.cline.urlContentFetcher.launchBrowser()
       let result: {
         screenshot: string
@@ -500,10 +508,10 @@ export class ToolExecutor {
         await this.cline.urlContentFetcher.closeBrowser()
       }
       const { screenshot, logs } = result
-      await this.cline.say("inspect_site_result", logs, [screenshot])
+      await this.cline.sendMessage("inspect_site_result", logs, [screenshot])
 
       this.cline.pushToolResult(block,
-        formatResponse.toolResult(
+        responseTemplates.toolResult(
           `The site has been visited, with console logs captured and a screenshot taken for your analysis.\n\nConsole logs:\n${logs || "(No logs)"
           }`,
           [screenshot]
@@ -520,7 +528,7 @@ export class ToolExecutor {
     const command: string | undefined = block.params.command
     try {
       if (block.partial) {
-        await this.cline.ask("command", this.removeClosingTag(block, "command", command), block.partial).catch(
+        await this.cline.askUser("command", this.removeClosingTag(block, "command", command), block.partial).catch(
           () => { }
         )
         return
@@ -528,7 +536,7 @@ export class ToolExecutor {
         if (!command) {
           this.cline.consecutiveMistakeCount++
           this.cline.pushToolResult(block,
-            await this.cline.sayAndCreateMissingParamError("execute_command", "command")
+            await this.handleMissingParamError("execute_command", "command")
           )
           return
         }
@@ -563,7 +571,7 @@ export class ToolExecutor {
           // const secondLastMessage = this.clineMessages.at(-2)
           if (lastMessage && lastMessage.ask === "command") {
             // update command
-            await this.cline.ask(
+            await this.cline.askUser(
               "command",
               this.removeClosingTag(block, "command", command),
               block.partial
@@ -571,13 +579,13 @@ export class ToolExecutor {
           } else {
             // last message is completion_result
             // we have command string, which means we have the result as well, so finish it (doesnt have to exist yet)
-            await this.cline.say(
+            await this.cline.sendMessage(
               "completion_result",
               this.removeClosingTag(block, "result", result),
               undefined,
               false
             )
-            await this.cline.ask(
+            await this.cline.askUser(
               "command",
               this.removeClosingTag(block, "command", command),
               block.partial
@@ -585,7 +593,7 @@ export class ToolExecutor {
           }
         } else {
           // no command, still outputting partial result
-          await this.cline.say(
+          await this.cline.sendMessage(
             "completion_result",
             this.removeClosingTag(block, "result", result),
             undefined,
@@ -597,7 +605,7 @@ export class ToolExecutor {
       if (!result) {
         this.cline.consecutiveMistakeCount++
         this.cline.pushToolResult(block,
-          await this.cline.sayAndCreateMissingParamError("attempt_completion", "result")
+          await this.handleMissingParamError("attempt_completion", "result")
         )
         return
       }
@@ -607,7 +615,7 @@ export class ToolExecutor {
       if (command) {
         if (lastMessage && lastMessage.ask !== "command") {
           // havent sent a command message yet so first send completion_result then command
-          await this.cline.say("completion_result", result, undefined, false)
+          await this.cline.sendMessage("completion_result", result, undefined, false)
         }
 
         // complete command message
@@ -624,16 +632,16 @@ export class ToolExecutor {
         // user didn't reject, but the command may have output
         commandResult = execCommandResult
       } else {
-        await this.cline.say("completion_result", result, undefined, false)
+        await this.cline.sendMessage("completion_result", result, undefined, false)
       }
 
       // we already sent completion_result says, an empty string asks relinquishes control over button and field
-      const { response, text, images } = await this.cline.ask("completion_result", "", false)
+      const { response, text, images } = await this.cline.askUser("completion_result", "", false)
       if (response === "yesButtonClicked") {
         this.cline.pushToolResult(block, "") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
         return
       }
-      await this.cline.say("user_feedback", text ?? "", images)
+      await this.cline.sendMessage("user_feedback", text ?? "", images)
 
       const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
       if (commandResult) {
@@ -647,7 +655,7 @@ export class ToolExecutor {
         type: "text",
         text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
       })
-      toolResults.push(...formatResponse.imageBlocks(images))
+      toolResults.push(...responseTemplates.imageBlocks(images))
       this.cline.userMessageContent.push({
         type: "text",
         text: `$getToolDescription(block)} Result:`,
@@ -666,21 +674,21 @@ export class ToolExecutor {
     const question: string | undefined = block.params.question
     try {
       if (block.partial) {
-        await this.cline.ask("followup", this.removeClosingTag(block, "question", question), block.partial).catch(
+        await this.cline.askUser("followup", this.removeClosingTag(block, "question", question), block.partial).catch(
           () => { }
         )
         return
       }
       if (!question) {
         this.cline.consecutiveMistakeCount++
-        const missingParamError = await this.cline.sayAndCreateMissingParamError("ask_followup_question", "question")
+        const missingParamError = await this.handleMissingParamError("ask_followup_question", "question")
         this.cline.pushToolResult(block, missingParamError)
         return
       }
       this.cline.consecutiveMistakeCount = 0
-      const { text, images } = await this.cline.ask("followup", question, false)
-      await this.cline.say("user_feedback", text ?? "", images)
-      this.cline.pushToolResult(block, formatResponse.toolResult(`<answer>\n${text}\n</answer>`, images))
+      const { text, images } = await this.cline.askUser("followup", question, false)
+      await this.cline.sendMessage("user_feedback", text ?? "", images)
+      this.cline.pushToolResult(block, responseTemplates.toolResult(`<answer>\n${text}\n</answer>`, images))
       return
 
     } catch (error) {
@@ -700,7 +708,7 @@ export class ToolExecutor {
     if (!contentParam) {
       console.debug("Content parameter is missing.");
       this.cline.consecutiveMistakeCount++;
-      this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("search_replace", "content"));
+      this.cline.pushToolResult(block, await this.handleMissingParamError("search_replace", "content"));
       return;
     }
 
@@ -806,7 +814,7 @@ export class ToolExecutor {
       const completeMessage = JSON.stringify({
         tool: "searchReplace",
         path: filePath,
-        diff: formatResponse.createPrettyPatch(
+        diff: responseTemplates.createPrettyPatch(
           filePath,
           originalContent,
           document.getText()
@@ -861,7 +869,7 @@ export class ToolExecutor {
         diff: userEdits,
       } satisfies ClineSayTool);
 
-      await this.cline.say("user_feedback_diff", userFeedbackDiff);
+      await this.cline.sendMessage("user_feedback_diff", userFeedbackDiff);
       this.cline.pushToolResult(block,
         `The user made the following updates:\n\n${userEdits}\n\n` +
         `Changes applied successfully to ${filePath}.${newProblemsMessage}`
@@ -898,7 +906,7 @@ export class ToolExecutor {
       if (block.partial) {
         console.debug("Block is partial, sending partial message.");
         const partialMessage = JSON.stringify(sharedMessageProps);
-        await this.cline.ask("tool", partialMessage, block.partial).catch(() => {
+        await this.cline.askUser("tool", partialMessage, block.partial).catch(() => {
           console.debug("Partial message ask failed.");
         });
         return;
@@ -908,19 +916,19 @@ export class ToolExecutor {
       if (!relPath) {
         console.debug("Path is missing.");
         this.cline.consecutiveMistakeCount++;
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("insert_code_block", "path"));
+        this.cline.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "path"));
         return;
       }
       if (!position) {
         console.debug("Position is missing.");
         this.cline.consecutiveMistakeCount++;
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("insert_code_block", "position"));
+        this.cline.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "position"));
         return;
       }
       if (!content) {
         console.debug("Content is missing.");
         this.cline.consecutiveMistakeCount++;
-        this.cline.pushToolResult(block, await this.cline.sayAndCreateMissingParamError("insert_code_block", "content"));
+        this.cline.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "content"));
         return;
       }
 
@@ -956,7 +964,7 @@ export class ToolExecutor {
       // Show changes in diff view
       if (!this.diffViewProvider.isEditing) {
         console.debug("Diff view is not editing, opening diff view.");
-        await this.cline.ask("tool", JSON.stringify(sharedMessageProps), true).catch(() => {
+        await this.cline.askUser("tool", JSON.stringify(sharedMessageProps), true).catch(() => {
           console.debug("Diff view opening ask failed.");
         });
         // First open with original content
@@ -971,7 +979,7 @@ export class ToolExecutor {
 
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
-        diff: formatResponse.createPrettyPatch(
+        diff: responseTemplates.createPrettyPatch(
           relPath,
           this.diffViewProvider.originalContent,
           updatedContent
@@ -979,7 +987,7 @@ export class ToolExecutor {
       } satisfies ClineSayTool);
 
       console.debug("Asking for approval with complete message:", completeMessage);
-      const didApprove = await this.cline.ask("tool", completeMessage, false).then(
+      const didApprove = await this.cline.askUser("tool", completeMessage, false).then(
         response => response.response === "yesButtonClicked"
       );
 
@@ -1011,7 +1019,7 @@ export class ToolExecutor {
       } satisfies ClineSayTool);
 
       console.debug("User made edits, sending feedback diff:", userFeedbackDiff);
-      await this.cline.say("user_feedback_diff", userFeedbackDiff);
+      await this.cline.sendMessage("user_feedback_diff", userFeedbackDiff);
       this.cline.pushToolResult(
         block,
         `The user made the following updates to your content:\n\n${userEdits}\n\n` +
@@ -1028,11 +1036,11 @@ export class ToolExecutor {
     } catch (error) {
       console.error("Error inserting code block:", error);
       const errorString = `Error inserting code block: ${JSON.stringify(error)}`;
-      await this.cline.say(
+      await this.cline.sendMessage(
         "error",
         `Error inserting code block:\n${error.message ?? JSON.stringify(error, null, 2)}`
       );
-      this.cline.pushToolResult(block, formatResponse.toolError(errorString));
+      this.cline.pushToolResult(block, responseTemplates.toolError(errorString));
       await this.diffViewProvider.reset();
     }
   }
