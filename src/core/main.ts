@@ -27,11 +27,11 @@ import {
 import { getApiMetrics } from "../shared/metrics"
 import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
-import { calculateApiCost } from "../utils/cost"
 import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHistory } from "../utils/fs"
 import { findLastIndex, timeAgoDescription } from "../utils/helpers"
-import { AssistantMessageParser } from "../utils/parsers"
+import { AgentMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
+import { calculateApiCost } from "../utils/pricing"
 import { AgentConfig } from "./config"
 import { responseTemplates, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
@@ -1089,7 +1089,7 @@ export class Agent {
               assistantMessage += chunk.text
               // parse raw assistant message into content blocks
               const prevLength = this.assistantMessageContent.length
-              this.assistantMessageContent = AssistantMessageParser.parse(assistantMessage)
+              this.assistantMessageContent = AgentMessageParser.parse(assistantMessage)
               if (this.assistantMessageContent.length > prevLength) {
                 // new content we need to present, reset to false in case previous content set this to true
                 this.userMessageContentReady = false

@@ -8,7 +8,7 @@ import {
   toolUseNames,
 } from "../types"
 
-export class AssistantMessageParser {
+export class AgentMessageParser {
   private contentBlocks: AssistantMessageContent[] = []
   private currentTextContent: TextContent | undefined = undefined
   private currentTextContentStartIndex = 0
@@ -210,7 +210,7 @@ export class AssistantMessageParser {
    * @returns Array of parsed content blocks (tool uses and text content)
    */
   static parse(assistantMessage: string) {
-    const parser = new AssistantMessageParser()
+    const parser = new AgentMessageParser()
     for (let i = 0; i < assistantMessage.length; i++) {
       parser.accumulator += assistantMessage[i]
 
