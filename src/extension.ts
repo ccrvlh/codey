@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import delay from "delay"
 import * as vscode from "vscode"
-import { ClineProvider } from "./core/webview"
+import { ViewProvider } from "./core/webview"
 import { createClineAPI } from "./exports"
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
 import { SIDEBAR_ID, TAB_PANEL_ID } from "./utils/const"
@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	outputChannel.appendLine("Cline extension activated")
 
-	const sidebarProvider = new ClineProvider(context, outputChannel)
+	const sidebarProvider = new ViewProvider(context, outputChannel)
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(SIDEBAR_ID, sidebarProvider, {
@@ -48,7 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 		outputChannel.appendLine("Opening Cline in new tab")
 		// (this example uses webviewProvider activation event which is necessary to deserialize cached webview, but since we use retainContextWhenHidden, we don't need to use that event)
 		// https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-		const tabProvider = new ClineProvider(context, outputChannel)
+		const tabProvider = new ViewProvider(context, outputChannel)
 		//const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined
 		const lastCol = Math.max(...vscode.window.visibleTextEditors.map((editor) => editor.viewColumn || 0))
 
@@ -113,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const handleUri = async (uri: vscode.Uri) => {
 		const path = uri.path
 		const query = new URLSearchParams(uri.query.replace(/\+/g, "%2B"))
-		const visibleProvider = ClineProvider.getVisibleInstance()
+		const visibleProvider = ViewProvider.getVisibleInstance()
 		if (!visibleProvider) {
 			return
 		}

@@ -1,17 +1,17 @@
 import * as path from "path"
 import * as vscode from "vscode"
-import { ClineProvider } from "../../core/webview"
+import { ViewProvider } from "../../core/webview"
 import { listFiles } from "../../services/glob/list-files"
 
 const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0)
 
 // Note: this is not a drop-in replacement for listFiles at the start of tasks, since that will be done for Desktops when there is no workspace selected
 class WorkspaceTracker {
-	private providerRef: WeakRef<ClineProvider>
+	private providerRef: WeakRef<ViewProvider>
 	private disposables: vscode.Disposable[] = []
 	private filePaths: Set<string> = new Set()
 
-	constructor(provider: ClineProvider) {
+	constructor(provider: ViewProvider) {
 		this.providerRef = new WeakRef(provider)
 		this.registerListeners()
 	}

@@ -36,7 +36,7 @@ import { responseTemplates, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
 import { CUSTOM_USER_INSTRUCTIONS, SYSTEM_PROMPT } from "./prompts"
 import { ToolExecutor } from "./tools"
-import { ClineProvider } from "./webview"
+import { ViewProvider } from "./webview"
 
 
 export class Cline {
@@ -65,7 +65,7 @@ export class Cline {
   private userResponseText?: string
   private userResponseImages?: string[]
   private lastMessageTs?: number
-  private providerRef: WeakRef<ClineProvider>
+  private providerRef: WeakRef<ViewProvider>
   private diffViewProvider: DiffViewProvider
   private abort: boolean = false
   private toolExecutor: ToolExecutor
@@ -80,7 +80,7 @@ export class Cline {
   private didCompleteReadingStream = false
 
   constructor(
-    provider: ClineProvider,
+    provider: ViewProvider,
     apiConfiguration: ApiConfiguration,
     config: ClineConfig,
     task?: string,

@@ -20,8 +20,8 @@ import { Cline } from "./main"
 import { openMention } from "./mentions"
 
 
-export class ClineProvider implements vscode.WebviewViewProvider {
-	private static activeInstances: Set<ClineProvider> = new Set()
+export class ViewProvider implements vscode.WebviewViewProvider {
+	private static activeInstances: Set<ViewProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
 	private view?: vscode.WebviewView | vscode.WebviewPanel
 	private cline?: Cline
@@ -31,7 +31,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	constructor(readonly context: vscode.ExtensionContext, private readonly outputChannel: vscode.OutputChannel) {
 		this.outputChannel.appendLine("ClineProvider instantiated")
-		ClineProvider.activeInstances.add(this)
+		ViewProvider.activeInstances.add(this)
 		this.workspaceTracker = new WorkspaceTracker(this)
 		this.configManager = new ConfigManager(context)
 	}
@@ -58,10 +58,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		this.workspaceTracker?.dispose()
 		this.workspaceTracker = undefined
 		this.outputChannel.appendLine("Disposed all disposables")
-		ClineProvider.activeInstances.delete(this)
+		ViewProvider.activeInstances.delete(this)
 	}
 
-	public static getVisibleInstance(): ClineProvider | undefined {
+	public static getVisibleInstance(): ViewProvider | undefined {
 		return findLast(Array.from(this.activeInstances), (instance) => instance.view?.visible === true)
 	}
 
