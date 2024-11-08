@@ -1,4 +1,4 @@
-# Codey (prev. Codey) – \#1 on OpenRouter
+# Codey (Cline fork)
 
 <p align="center">
   <img src="https://media.githubusercontent.com/media/ccrvlh/codey/main/assets/docs/demo.gif" width="100%" />
