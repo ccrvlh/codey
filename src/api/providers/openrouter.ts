@@ -3,7 +3,7 @@ import axios from "axios"
 import delay from "delay"
 import OpenAI from "openai"
 import { ApiHandler } from "../"
-import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
+import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
 
@@ -24,10 +24,10 @@ const openRouterDefaultModelInfo: ModelInfo = {
 }
 
 export class OpenRouterHandler implements ApiHandler {
-	private options: ApiHandlerOptions
+	private options: APIHandlerOptions
 	private client: OpenAI
 
-	constructor(options: ApiHandlerOptions) {
+	constructor(options: APIHandlerOptions) {
 		this.options = options
 		this.client = new OpenAI({
 			baseURL: "https://openrouter.ai/api/v1",

@@ -1,6 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { Stream as AnthropicStream } from "@anthropic-ai/sdk/streaming"
-import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
+import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { ApiHandler } from "../index"
 import { ApiStream } from "../transform/stream"
 
@@ -43,10 +43,10 @@ const MODELS = {
 type MODEL_ID = keyof typeof MODELS
 
 export class AnthropicHandler implements ApiHandler {
-	private options: ApiHandlerOptions
+	private options: APIHandlerOptions
 	private client: Anthropic
 
-	constructor(options: ApiHandlerOptions) {
+	constructor(options: APIHandlerOptions) {
 		this.options = options
 		this.client = new Anthropic({
 			apiKey: this.options.apiKey,

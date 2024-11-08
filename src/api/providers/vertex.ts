@@ -2,7 +2,7 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk"
 import { ApiHandler } from "../"
 
-import { ApiHandlerOptions, ModelInfo } from "../../shared/interfaces"
+import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { ApiStream } from "../transform/stream"
 
 // Vertex AI
@@ -49,10 +49,10 @@ const MODELS = {
 
 // https://docs.anthropic.com/en/api/claude-on-vertex-ai
 export class VertexHandler implements ApiHandler {
-	private options: ApiHandlerOptions
+	private options: APIHandlerOptions
 	private client: AnthropicVertex
 
-	constructor(options: ApiHandlerOptions) {
+	constructor(options: APIHandlerOptions) {
 		this.options = options
 		this.client = new AnthropicVertex({
 			projectId: this.options.vertexProjectId,

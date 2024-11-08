@@ -14,19 +14,20 @@ import { ClineAsk, ClineSayTool } from "../shared/interfaces"
 import { ToolParamName, ToolResponse, ToolUse, ToolUseName } from "../types"
 import { fileExistsAtPath } from "../utils/fs"
 import { getReadablePath } from "../utils/path"
-import { ClineConfig } from "./config"
+import { AgentConfig } from "./config"
 import { responseTemplates } from "./formatter"
-import { Assistant } from "./main"
+import { Agent } from "./main"
+
 
 export class ToolExecutor {
   private static readonly MAX_FILE_LINES = 500;
   private diffViewProvider: DiffViewProvider
   private cwd: string
-  private cline: Assistant
-  private config: ClineConfig
+  private cline: Agent
+  private config: AgentConfig
 
-  constructor(cline: Assistant, config: ClineConfig, cwd: string, diffViewProvider: DiffViewProvider) {
-    this.cline = cline
+  constructor(agent: Agent, config: AgentConfig, cwd: string, diffViewProvider: DiffViewProvider) {
+    this.cline = agent
     this.config = config
     this.cwd = cwd
     this.diffViewProvider = diffViewProvider

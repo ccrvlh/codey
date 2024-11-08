@@ -8,7 +8,8 @@ import { openFile } from "../integrations/misc/open-file"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { MENTION_REGEX_GLOBAL } from "../shared/mentions"
 
-async function getFileOrFolderContent(mentionPath: string, cwd: string): Promise<string> {
+
+async function getPathContent(mentionPath: string, cwd: string): Promise<string> {
 	const absPath = path.resolve(cwd, mentionPath)
 
 	try {
@@ -148,7 +149,7 @@ export async function parseMentions(text: string, cwd: string, urlContentFetcher
 		} else if (mention.startsWith("/")) {
 			const mentionPath = mention.slice(1)
 			try {
-				const content = await getFileOrFolderContent(mentionPath, cwd)
+				const content = await getPathContent(mentionPath, cwd)
 				if (mention.endsWith("/")) {
 					parsedText += `\n\n<folder_content path="${mentionPath}">\n${content}\n</folder_content>`
 				} else {

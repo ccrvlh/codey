@@ -16,8 +16,9 @@ import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
 import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
 import {
-  ApiConfiguration, ClineApiReqCancelReason,
-  ClineApiReqInfo,
+  ApiConfiguration,
+  APIRequestCancelReason,
+  APIRequestInfo,
   ClineAsk,
   ClineMessage,
   ClineSay, ExtensionMessageType, HistoryItem,
@@ -31,7 +32,7 @@ import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHis
 import { findLastIndex, timeAgoDescription } from "../utils/helpers"
 import { AssistantMessageParser } from "../utils/parsers"
 import { arePathsEqual } from "../utils/path"
-import { ClineConfig } from "./config"
+import { AgentConfig } from "./config"
 import { responseTemplates, truncateConversation } from "./formatter"
 import { parseMentions } from "./mentions"
 import { CUSTOM_USER_INSTRUCTIONS, SYSTEM_PROMPT } from "./prompts"
@@ -39,12 +40,12 @@ import { ToolExecutor } from "./tools"
 import { ViewProvider } from "./webview"
 
 
-export class Assistant {
+export class Agent {
 
   // Declarations
   api: ApiHandler
   urlContentFetcher: UrlContentFetcher
-  config: ClineConfig
+  config: AgentConfig
 
   // State
   apiConversationHistory: Anthropic.MessageParam[] = []
@@ -82,7 +83,7 @@ export class Assistant {
   constructor(
     provider: ViewProvider,
     apiConfiguration: ApiConfiguration,
-    config: ClineConfig,
+    config: AgentConfig,
     task?: string,
     images?: string[],
     historyItem?: HistoryItem,
@@ -386,7 +387,7 @@ export class Assistant {
     )
     if (lastApiReqStartedIndex !== -1) {
       const lastApiReqStarted = modifiedClineMessages[lastApiReqStartedIndex]
-      const { cost, cancelReason }: ClineApiReqInfo = JSON.parse(lastApiReqStarted.text || "{}")
+      const { cost, cancelReason }: APIRequestInfo = JSON.parse(lastApiReqStarted.text || "{}")
       if (cost === undefined && cancelReason === undefined) {
         modifiedClineMessages.splice(lastApiReqStartedIndex, 1)
       }
@@ -880,7 +881,7 @@ export class Assistant {
     if (previousApiReqIndex >= 0) {
       const previousRequest = this.clineMessages[previousApiReqIndex]
       if (previousRequest && previousRequest.text) {
-        const { tokensIn, tokensOut, cacheWrites, cacheReads }: ClineApiReqInfo = JSON.parse(
+        const { tokensIn, tokensOut, cacheWrites, cacheReads }: APIRequestInfo = JSON.parse(
           previousRequest.text
         )
         const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
@@ -983,7 +984,7 @@ export class Assistant {
     const lastApiReqIndex = findLastIndex(this.clineMessages, (m) => m.say === "api_req_started")
     this.clineMessages[lastApiReqIndex].text = JSON.stringify({
       request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n"),
-    } satisfies ClineApiReqInfo)
+    } satisfies APIRequestInfo)
     await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
     await this.providerRef.deref()?.postStateToWebview()
 
@@ -999,7 +1000,7 @@ export class Assistant {
       // fortunately api_req_finished was always parsed out for the gui anyways,
       // so it remains solely for legacy purposes to keep track of prices in tasks from history
       // (it's worth removing a few months from now)
-      const updateApiReqMsg = (cancelReason?: ClineApiReqCancelReason, streamingFailedMessage?: string) => {
+      const updateApiReqMsg = (cancelReason?: APIRequestCancelReason, streamingFailedMessage?: string) => {
         this.clineMessages[lastApiReqIndex].text = JSON.stringify({
           ...JSON.parse(this.clineMessages[lastApiReqIndex].text || "{}"),
           tokensIn: inputTokens,
@@ -1017,10 +1018,10 @@ export class Assistant {
             ),
           cancelReason,
           streamingFailedMessage,
-        } satisfies ClineApiReqInfo)
+        } satisfies APIRequestInfo)
       }
 
-      const abortStream = async (cancelReason: ClineApiReqCancelReason, streamingFailedMessage?: string) => {
+      const abortStream = async (cancelReason: APIRequestCancelReason, streamingFailedMessage?: string) => {
         if (this.diffViewProvider.isEditing) {
           await this.diffViewProvider.revertChanges() // closes diff view
         }

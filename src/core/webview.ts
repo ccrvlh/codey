@@ -10,13 +10,13 @@ import { openFile, openImage } from "../integrations/misc/open-file"
 import { selectImages } from "../integrations/misc/process-images"
 import { getTheme } from "../integrations/theme/getTheme"
 import WorkspaceTracker from "../integrations/workspace/WorkspaceTracker"
-import { ApiProvider, ExtensionMessage, HistoryItem, ModelInfo, WebviewMessage } from "../shared/interfaces"
+import { APIProvider, ExtensionMessage, HistoryItem, ModelInfo, WebviewMessage } from "../shared/interfaces"
 import { GlobalStateKey, SecretKey } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { fileExistsAtPath } from "../utils/fs"
 import { findLast, getNonce, getUri } from "../utils/helpers"
 import { ConfigManager } from "./config"
-import { Assistant } from "./main"
+import { Agent } from "./main"
 import { openMention } from "./mentions"
 
 
@@ -24,7 +24,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 	private static activeInstances: Set<ViewProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
 	private view?: vscode.WebviewView | vscode.WebviewPanel
-	private cline?: Assistant
+	private agent?: Agent
 	private configManager: ConfigManager
 	private workspaceTracker?: WorkspaceTracker
 	private latestAnnouncementId = "oct-9-2024" // update to some unique identifier when we add a new announcement
@@ -144,14 +144,14 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 		await this.clearTask()
 		const { apiConfiguration } = await this.getState()
 		const config = await this.configManager.getConfig()
-		this.cline = new Assistant(this, apiConfiguration, config, task, images, undefined)
+		this.agent = new Agent(this, apiConfiguration, config, task, images, undefined)
 	}
 
 	async initClineWithHistoryItem(historyItem: HistoryItem) {
 		await this.clearTask()
 		const { apiConfiguration } = await this.getState()
 		const config = await this.configManager.getConfig()
-		this.cline = new Assistant(
+		this.agent = new Agent(
 			this,
 			apiConfiguration,
 			config,
@@ -336,8 +336,8 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 							await this.updateGlobalState("azureApiVersion", azureApiVersion)
 							await this.updateGlobalState("openRouterModelId", openRouterModelId)
 							await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
-							if (this.cline) {
-								this.cline.api = buildApiHandler(message.apiConfiguration)
+							if (this.agent) {
+								this.agent.api = buildApiHandler(message.apiConfiguration)
 							}
 						}
 						await this.postStateToWebview()
@@ -347,20 +347,20 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 						break
 					case "alwaysAllowReadOnly":
 						await this.updateGlobalState("alwaysAllowReadOnly", message.bool ?? undefined)
-						if (this.cline) {
-							this.cline.config.alwaysAllowReadOnly = message.bool ?? false
+						if (this.agent) {
+							this.agent.config.alwaysAllowReadOnly = message.bool ?? false
 						}
 						await this.postStateToWebview()
 						break
 					case "editAutoScroll":
 						await this.updateGlobalState("editAutoScroll", message.bool ?? undefined)
-						if (this.cline) {
-							this.cline.config.editAutoScroll = message.bool ?? false
+						if (this.agent) {
+							this.agent.config.editAutoScroll = message.bool ?? false
 						}
 						await this.postStateToWebview()
 						break
 					case "askResponse":
-						this.cline?.handleWebviewUserResponse(message.askResponse!, message.text, message.images)
+						this.agent?.handleWebviewUserResponse(message.askResponse!, message.text, message.images)
 						break
 					case "clearTask":
 						// newTask will start a new task with a given task text, while clear task resets the current session and allows for a new task to be started
@@ -376,7 +376,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 						await this.postMessageToWebview({ type: "selectedImages", images })
 						break
 					case "exportCurrentTask":
-						const currentTaskId = this.cline?.taskId
+						const currentTaskId = this.agent?.taskId
 						if (currentTaskId) {
 							this.exportTaskWithId(currentTaskId)
 						}
@@ -410,17 +410,17 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 						openMention(message.text)
 						break
 					case "cancelTask":
-						if (this.cline) {
-							const { historyItem } = await this.getTaskWithId(this.cline.taskId)
-							this.cline.abortTask()
-							await pWaitFor(() => this.cline === undefined || this.cline.didFinishAborting, {
+						if (this.agent) {
+							const { historyItem } = await this.getTaskWithId(this.agent.taskId)
+							this.agent.abortTask()
+							await pWaitFor(() => this.agent === undefined || this.agent.didFinishAborting, {
 								timeout: 3_000,
 							}).catch(() => {
 								console.error("Failed to abort task")
 							})
-							if (this.cline) {
+							if (this.agent) {
 								// 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
-								this.cline.abandoned = true
+								this.agent.abandoned = true
 							}
 							await this.initClineWithHistoryItem(historyItem) // clears task again, so we need to abortTask manually above
 							// await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
@@ -469,12 +469,12 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 			throw error
 		}
 
-		const openrouter: ApiProvider = "openrouter"
+		const openrouter: APIProvider = "openrouter"
 		await this.updateGlobalState("apiProvider", openrouter)
 		await this.storeSecret("openRouterApiKey", apiKey)
 		await this.postStateToWebview()
-		if (this.cline) {
-			this.cline.api = buildApiHandler({ apiProvider: openrouter, openRouterApiKey: apiKey })
+		if (this.agent) {
+			this.agent.api = buildApiHandler({ apiProvider: openrouter, openRouterApiKey: apiKey })
 		}
 		// await this.postMessageToWebview({ type: "action", action: "settingsButtonClicked" }) // bad ux if user is on welcome
 	}
@@ -623,7 +623,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	async showTaskWithId(id: string) {
-		if (id !== this.cline?.taskId) {
+		if (id !== this.agent?.taskId) {
 			// non-current task
 			const { historyItem } = await this.getTaskWithId(id)
 			await this.initClineWithHistoryItem(historyItem) // clears existing task
@@ -637,7 +637,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	async deleteTaskWithId(id: string) {
-		if (id === this.cline?.taskId) {
+		if (id === this.agent?.taskId) {
 			await this.clearTask()
 		}
 
@@ -686,15 +686,15 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 			alwaysAllowReadOnly,
 			editAutoScroll,
 			uriScheme: vscode.env.uriScheme,
-			clineMessages: this.cline?.clineMessages || [],
+			clineMessages: this.agent?.clineMessages || [],
 			taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
 			shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
 		}
 	}
 
 	async clearTask() {
-		this.cline?.abortTask()
-		this.cline = undefined // removes reference to it, so once promises end it will be garbage collected
+		this.agent?.abortTask()
+		this.agent = undefined // removes reference to it, so once promises end it will be garbage collected
 	}
 
 	async getState() {
@@ -726,7 +726,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 			editAutoScroll,
 			taskHistory,
 		] = await Promise.all([
-			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
+			this.getGlobalState("apiProvider") as Promise<APIProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
 			this.getSecret("apiKey") as Promise<string | undefined>,
 			this.getSecret("openRouterApiKey") as Promise<string | undefined>,
@@ -754,7 +754,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
 		])
 
-		let apiProvider: ApiProvider
+		let apiProvider: APIProvider
 		if (storedApiProvider) {
 			apiProvider = storedApiProvider
 		} else {
@@ -856,9 +856,9 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 		for (const key of secretKeys) {
 			await this.storeSecret(key, undefined)
 		}
-		if (this.cline) {
-			this.cline.abortTask()
-			this.cline = undefined
+		if (this.agent) {
+			this.agent.abortTask()
+			this.agent = undefined
 		}
 		vscode.window.showInformationMessage("State reset")
 		await this.postStateToWebview()

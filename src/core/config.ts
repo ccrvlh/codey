@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { GlobalStateKey } from "../types"
 
-export interface ClineConfig {
+export interface AgentConfig {
   customInstructions: string
   alwaysAllowReadOnly: boolean
   editAutoScroll: boolean
@@ -15,7 +15,7 @@ export interface ClineConfig {
 export class ConfigManager {
   constructor(private readonly context: vscode.ExtensionContext) { }
 
-  async getConfig(): Promise<ClineConfig> {
+  async getConfig(): Promise<AgentConfig> {
     const [
       customInstructions,
       alwaysAllowReadOnly,
@@ -48,7 +48,7 @@ export class ConfigManager {
     }
   }
 
-  async updateConfig(key: keyof ClineConfig, value: any): Promise<void> {
+  async updateConfig(key: keyof AgentConfig, value: any): Promise<void> {
     await this.updateGlobalState(key as GlobalStateKey, value)
   }
 

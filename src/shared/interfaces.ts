@@ -92,18 +92,18 @@ export interface ClineSayTool {
   filePattern?: string
 }
 
-export interface ClineApiReqInfo {
+export interface APIRequestInfo {
   request?: string
   tokensIn?: number
   tokensOut?: number
   cacheWrites?: number
   cacheReads?: number
   cost?: number
-  cancelReason?: ClineApiReqCancelReason
+  cancelReason?: APIRequestCancelReason
   streamingFailedMessage?: string
 }
 
-export type ClineApiReqCancelReason = "streaming_failed" | "user_cancelled"
+export type APIRequestCancelReason = "streaming_failed" | "user_cancelled"
 
 export type HistoryItem = {
   id: string
@@ -154,7 +154,7 @@ export interface WebviewMessage {
 
 export type UserResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
 
-export type ApiProvider =
+export type APIProvider =
   | "anthropic"
   | "openrouter"
   | "bedrock"
@@ -164,7 +164,8 @@ export type ApiProvider =
   | "gemini"
   | "openai-native"
 
-export interface ApiHandlerOptions {
+
+export interface APIHandlerOptions {
   apiModelId?: string
   apiKey?: string // anthropic
   anthropicBaseUrl?: string
@@ -187,8 +188,8 @@ export interface ApiHandlerOptions {
   azureApiVersion?: string
 }
 
-export type ApiConfiguration = ApiHandlerOptions & {
-  apiProvider?: ApiProvider
+export type ApiConfiguration = APIHandlerOptions & {
+  apiProvider?: APIProvider
 }
 
 // Models
