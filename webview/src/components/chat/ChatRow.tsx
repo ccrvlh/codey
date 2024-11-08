@@ -3,7 +3,7 @@ import deepEqual from "fast-deep-equal"
 import React, { memo, useEffect, useMemo, useRef } from "react"
 import { useSize } from "react-use"
 import { COMMAND_OUTPUT_STRING } from "../../../../src/shared/const"
-import { CodeyApiReqInfo, CodeyMessage, CodeySayTool } from "../../../../src/shared/interfaces"
+import { APIRequestInfo, CodeyMessage, CodeySayTool } from "../../../../src/shared/interfaces"
 import { vscode } from "../../utils/vscode"
 import CodeAccordian, { removeLeadingNonAlphanumeric } from "../common/CodeAccordian"
 import CodeBlock, { CODE_BLOCK_BG_COLOR } from "../common/CodeBlock"
@@ -63,7 +63,7 @@ export default ChatRow
 const ChatRowContent = ({ message, isExpanded, onToggleExpand, lastModifiedMessage, isLast }: ChatRowContentProps) => {
   const [cost, apiReqCancelReason, apiReqStreamingFailedMessage] = useMemo(() => {
     if (message.text != null && message.say === "api_req_started") {
-      const info: CodeyApiReqInfo = JSON.parse(message.text)
+      const info: APIRequestInfo = JSON.parse(message.text)
       return [info.cost, info.cancelReason, info.streamingFailedMessage]
     }
     return [undefined, undefined, undefined]
