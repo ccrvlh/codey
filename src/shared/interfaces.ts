@@ -21,7 +21,7 @@ export interface ExtensionMessage {
   images?: string[]
   ollamaModels?: string[]
   filePaths?: string[]
-  partialMessage?: ClineMessage
+  partialMessage?: CodeyMessage
   openRouterModels?: Record<string, ModelInfo>
 }
 
@@ -32,22 +32,22 @@ export interface ExtensionState {
   alwaysAllowReadOnly?: boolean
   editAutoScroll?: boolean
   uriScheme?: string
-  clineMessages: ClineMessage[]
+  codeyMessages: CodeyMessage[]
   taskHistory: HistoryItem[]
   shouldShowAnnouncement: boolean
 }
 
-export interface ClineMessage {
+export interface CodeyMessage {
   ts: number
   type: "ask" | "say"
-  ask?: ClineAsk
-  say?: ClineSay
+  ask?: CodeyAsk
+  say?: CodeySay
   text?: string
   images?: string[]
   partial?: boolean
 }
 
-export type ClineAsk =
+export type CodeyAsk =
   | "followup"
   | "command"
   | "command_output"
@@ -58,7 +58,7 @@ export type ClineAsk =
   | "resume_completed_task"
   | "mistake_limit_reached"
 
-export type ClineSay =
+export type CodeySay =
   | "task"
   | "error"
   | "api_req_started"
@@ -73,7 +73,7 @@ export type ClineSay =
   | "shell_integration_warning"
   | "inspect_site_result"
 
-export interface ClineSayTool {
+export interface CodeySayTool {
   tool:
   | "editedExistingFile"
   | "newFileCreated"

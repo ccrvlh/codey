@@ -1,5 +1,5 @@
-import * as path from "path"
 import os from "os"
+import * as path from "path"
 
 /*
 The Node.js 'path' module resolves and normalizes paths differently depending on the platform:
@@ -94,7 +94,7 @@ export function getReadablePath(cwd: string, relPath?: string): string {
 		if (absolutePath.includes(cwd)) {
 			return normalizedRelPath.toPosix()
 		} else {
-			// we are outside the cwd, so show the absolute path (useful for when cline passes in '../../' for example)
+			// we are outside the cwd, so show the absolute path (useful for when codey passes in '../../' for example)
 			return absolutePath.toPosix()
 		}
 	}

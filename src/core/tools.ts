@@ -10,7 +10,7 @@ import { extractTextFromFile } from "../integrations/misc/extract-text"
 import { listFiles } from "../services/glob/list-files"
 import { regexSearchFiles } from "../services/ripgrep"
 import { parseSourceCodeForDefinitionsTopLevel } from "../services/tree-sitter"
-import { ClineAsk, ClineSayTool } from "../shared/interfaces"
+import { CodeyAsk, CodeySayTool } from "../shared/interfaces"
 import { ToolParamName, ToolResponse, ToolUse, ToolUseName } from "../types"
 import { fileExistsAtPath } from "../utils/fs"
 import { getReadablePath } from "../utils/path"
@@ -23,11 +23,11 @@ export class ToolExecutor {
   private static readonly MAX_FILE_LINES = 500;
   private diffViewProvider: DiffViewProvider
   private cwd: string
-  private cline: Agent
+  private codey: Agent
   private config: AgentConfig
 
   constructor(agent: Agent, config: AgentConfig, cwd: string, diffViewProvider: DiffViewProvider) {
-    this.cline = agent
+    this.codey = agent
     this.config = config
     this.cwd = cwd
     this.diffViewProvider = diffViewProvider
@@ -81,38 +81,38 @@ export class ToolExecutor {
     return text.replace(tagRegex, "")
   }
 
-  async askApproval(block: ToolUse, type: ClineAsk, partialMessage?: string) {
-    const { response, text, images } = await this.cline.askUser(type, partialMessage, false)
+  async askApproval(block: ToolUse, type: CodeyAsk, partialMessage?: string) {
+    const { response, text, images } = await this.codey.askUser(type, partialMessage, false)
     if (response === "yesButtonClicked") {
       return true
     }
     if (response === "messageResponse") {
-      await this.cline.sendMessage("user_feedback", text, images)
-      this.cline.pushToolResult(block,
+      await this.codey.sendMessage("user_feedback", text, images)
+      this.codey.pushToolResult(block,
         responseTemplates.toolResult(responseTemplates.toolDeniedWithFeedback(text), images)
       )
-      this.cline.didRejectTool = true
+      this.codey.didRejectTool = true
       return false
     }
-    this.cline.pushToolResult(block, responseTemplates.toolDenied())
-    this.cline.didRejectTool = true
+    this.codey.pushToolResult(block, responseTemplates.toolDenied())
+    this.codey.didRejectTool = true
     return false
 
   }
 
   async handleError(block: ToolUse, action: string, error: Error) {
     const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
-    await this.cline.sendMessage(
+    await this.codey.sendMessage(
       "error",
       `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`
     )
-    this.cline.pushToolResult(block, responseTemplates.toolError(errorString))
+    this.codey.pushToolResult(block, responseTemplates.toolError(errorString))
   }
 
   async handleMissingParamError(toolName: ToolUseName, paramName: string, relPath?: string): Promise<string> {
     const pathInfo = `${relPath ? ` for '${relPath.toPosix()}'` : ""}`
-    const detailedError = `Cline tried to use ${toolName}${pathInfo} without value for required parameter '${paramName}'. Retrying...`
-    await this.cline.sendMessage("error", detailedError)
+    const detailedError = `Codey tried to use ${toolName}${pathInfo} without value for required parameter '${paramName}'. Retrying...`
+    await this.codey.sendMessage("error", detailedError)
     const error = responseTemplates.missingToolParameterError(paramName)
     return responseTemplates.toolError(error)
   }
@@ -138,7 +138,7 @@ export class ToolExecutor {
     }
 
     newContent = this.cleanUpContent(newContent)
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: fileExists ? "editedExistingFile" : "newFileCreated",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
     }
@@ -147,7 +147,7 @@ export class ToolExecutor {
       if (block.partial) {
         // update gui message
         const partialMessage = JSON.stringify(sharedMessageProps)
-        await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
+        await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
         // update editor
         if (!this.diffViewProvider.isEditing) {
           // open the editor and prepare to stream content in
@@ -158,18 +158,18 @@ export class ToolExecutor {
         return
       }
       if (!relPath) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("write_to_file", "path"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("write_to_file", "path"))
         await this.diffViewProvider.reset()
         return
       }
       if (!newContent) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("write_to_file", "content"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("write_to_file", "content"))
         await this.diffViewProvider.reset()
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
 
       // if isEditingFile false, that means we have the full contents of the file already.
       // it's important to note how this function works,
@@ -181,7 +181,7 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify(sharedMessageProps)
 
         // sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
-        await this.cline.askUser("tool", partialMessage, true).catch(() => { })
+        await this.codey.askUser("tool", partialMessage, true).catch(() => { })
         await this.diffViewProvider.open(relPath)
       }
       await this.diffViewProvider.update(newContent, true, this.config.editAutoScroll)
@@ -199,16 +199,16 @@ export class ToolExecutor {
             newContent
           )
           : undefined,
-      } satisfies ClineSayTool)
+      } satisfies CodeySayTool)
       const didApprove = await this.askApproval(block, "tool", completeMessage)
       if (!didApprove) {
         await this.diffViewProvider.revertChanges()
         return
       }
       const { newProblemsMessage, userEdits, finalContent } = await this.diffViewProvider.saveChanges()
-      this.cline.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
+      this.codey.didEditFile = true // used to determine if we should wait for busy terminal to update before sending api request
       if (!userEdits) {
-        this.cline.pushToolResult(block, `The content was successfully saved to ${relPath.toPosix()}.${newProblemsMessage}`)
+        this.codey.pushToolResult(block, `The content was successfully saved to ${relPath.toPosix()}.${newProblemsMessage}`)
         await this.diffViewProvider.reset()
         return
       }
@@ -217,9 +217,9 @@ export class ToolExecutor {
         tool: fileExists ? "editedExistingFile" : "newFileCreated",
         path: getReadablePath(this.cwd, relPath),
         diff: userEdits,
-      } satisfies ClineSayTool)
-      await this.cline.sendMessage("user_feedback_diff", userFeedbackDiff)
-      this.cline.pushToolResult(block,
+      } satisfies CodeySayTool)
+      await this.codey.sendMessage("user_feedback_diff", userFeedbackDiff)
+      this.codey.pushToolResult(block,
         `The user made the following updates to your content:\n\n${userEdits}\n\n` +
         `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
         `<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
@@ -241,7 +241,7 @@ export class ToolExecutor {
 
   async readFileTool(block: ToolUse) {
     const relPath: string | undefined = block.params.path
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: "readFile",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
     }
@@ -250,30 +250,30 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: undefined,
-        } satisfies ClineSayTool)
+        } satisfies CodeySayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
+          await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relPath) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("read_file", "path"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("read_file", "path"))
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relPath)
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
         content: absolutePath,
-      } satisfies ClineSayTool)
+      } satisfies CodeySayTool)
       if (this.config.alwaysAllowReadOnly) {
         // need to be sending partialValue bool
         // since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
         // but as a single complete message
-        await this.cline.sendMessage("tool", completeMessage, undefined, false)
+        await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -287,13 +287,13 @@ export class ToolExecutor {
       if (lineCount > ToolExecutor.MAX_FILE_LINES) {
         console.debug(`File ${absolutePath} is too large (${lineCount} lines). Showing code definitions instead.`)
         const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
-        this.cline.pushToolResult(block,
+        this.codey.pushToolResult(block,
           `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`
         )
         return
       }
 
-      this.cline.pushToolResult(block, content)
+      this.codey.pushToolResult(block, content)
       return
 
     } catch (error) {
@@ -306,7 +306,7 @@ export class ToolExecutor {
     const relDirPath: string | undefined = block.params.path
     const recursiveRaw: string | undefined = block.params.recursive
     const recursive = recursiveRaw?.toLowerCase() === "true"
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: !recursive ? "listFilesTopLevel" : "listFilesRecursive",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relDirPath)),
     }
@@ -315,36 +315,36 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: "",
-        } satisfies ClineSayTool)
+        } satisfies CodeySayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
+          await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relDirPath) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("list_files", "path"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("list_files", "path"))
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relDirPath)
       const [files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
       const result = responseTemplates.formatFilesList(absolutePath, files, didHitLimit)
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
         content: result,
-      } satisfies ClineSayTool)
+      } satisfies CodeySayTool)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.sendMessage("tool", completeMessage, undefined, false)
+        await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
           return
         }
       }
-      this.cline.pushToolResult(block, result)
+      this.codey.pushToolResult(block, result)
       return
 
     } catch (error) {
@@ -355,7 +355,7 @@ export class ToolExecutor {
 
   async listCodeDefinitionNamesTool(block: ToolUse) {
     const relDirPath: string | undefined = block.params.path
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: "listCodeDefinitionNames",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relDirPath)),
     }
@@ -364,37 +364,37 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: "",
-        } satisfies ClineSayTool)
+        } satisfies CodeySayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
+          await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relDirPath) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block,
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block,
           await this.handleMissingParamError("list_code_definition_names", "path")
         )
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relDirPath)
       const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
         content: result,
-      } satisfies ClineSayTool)
+      } satisfies CodeySayTool)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.sendMessage("tool", completeMessage, undefined, false)
+        await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
           return
         }
       }
-      this.cline.pushToolResult(block, result)
+      this.codey.pushToolResult(block, result)
       return
 
     } catch (error) {
@@ -407,7 +407,7 @@ export class ToolExecutor {
     const relDirPath: string | undefined = block.params.path
     const regex: string | undefined = block.params.regex
     const filePattern: string | undefined = block.params.file_pattern
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: "searchFiles",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relDirPath)),
       regex: this.removeClosingTag(block, "regex", regex),
@@ -418,40 +418,40 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: "",
-        } satisfies ClineSayTool)
+        } satisfies CodeySayTool)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
+          await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!relDirPath) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("search_files", "path"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("search_files", "path"))
         return
       }
       if (!regex) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("search_files", "regex"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("search_files", "regex"))
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relDirPath)
       const results = await regexSearchFiles(this.cwd, absolutePath, regex, filePattern)
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
         content: results,
-      } satisfies ClineSayTool)
+      } satisfies CodeySayTool)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.sendMessage("tool", completeMessage, undefined, false)
+        await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
           return
         }
       }
-      this.cline.pushToolResult(block, results)
+      this.codey.pushToolResult(block, results)
       return
 
     } catch (error) {
@@ -462,7 +462,7 @@ export class ToolExecutor {
 
   async inspectSizeTool(block: ToolUse) {
     const url: string | undefined = block.params.url
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: "inspectSite",
       path: this.removeClosingTag(block, "url", url),
     }
@@ -470,21 +470,21 @@ export class ToolExecutor {
       if (block.partial) {
         const partialMessage = JSON.stringify(sharedMessageProps)
         if (this.config.alwaysAllowReadOnly) {
-          await this.cline.sendMessage("tool", partialMessage, undefined, block.partial)
+          await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.cline.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
         }
         return
       }
       if (!url) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block, await this.handleMissingParamError("inspect_site", "url"))
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block, await this.handleMissingParamError("inspect_site", "url"))
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
       const completeMessage = JSON.stringify(sharedMessageProps)
       if (this.config.alwaysAllowReadOnly) {
-        await this.cline.sendMessage("tool", completeMessage, undefined, false)
+        await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
@@ -497,21 +497,21 @@ export class ToolExecutor {
       // The only scenario we have to avoid is sending messages WHILE a partial message exists at the end of the messages array.
       // For example the api_req_finished message would interfere with the partial message, so we needed to remove that.
       // no result, starts the loading spinner waiting for result
-      await this.cline.sendMessage("inspect_site_result", "")
-      await this.cline.urlContentFetcher.launchBrowser()
+      await this.codey.sendMessage("inspect_site_result", "")
+      await this.codey.urlContentFetcher.launchBrowser()
       let result: {
         screenshot: string
         logs: string
       }
       try {
-        result = await this.cline.urlContentFetcher.urlToScreenshotAndLogs(url)
+        result = await this.codey.urlContentFetcher.urlToScreenshotAndLogs(url)
       } finally {
-        await this.cline.urlContentFetcher.closeBrowser()
+        await this.codey.urlContentFetcher.closeBrowser()
       }
       const { screenshot, logs } = result
-      await this.cline.sendMessage("inspect_site_result", logs, [screenshot])
+      await this.codey.sendMessage("inspect_site_result", logs, [screenshot])
 
-      this.cline.pushToolResult(block,
+      this.codey.pushToolResult(block,
         responseTemplates.toolResult(
           `The site has been visited, with console logs captured and a screenshot taken for your analysis.\n\nConsole logs:\n${logs || "(No logs)"
           }`,
@@ -529,28 +529,28 @@ export class ToolExecutor {
     const command: string | undefined = block.params.command
     try {
       if (block.partial) {
-        await this.cline.askUser("command", this.removeClosingTag(block, "command", command), block.partial).catch(
+        await this.codey.askUser("command", this.removeClosingTag(block, "command", command), block.partial).catch(
           () => { }
         )
         return
       } else {
         if (!command) {
-          this.cline.consecutiveMistakeCount++
-          this.cline.pushToolResult(block,
+          this.codey.consecutiveMistakeCount++
+          this.codey.pushToolResult(block,
             await this.handleMissingParamError("execute_command", "command")
           )
           return
         }
-        this.cline.consecutiveMistakeCount = 0
+        this.codey.consecutiveMistakeCount = 0
         const didApprove = await this.askApproval(block, "command", command)
         if (!didApprove) {
           return
         }
-        const [userRejected, result] = await this.cline.executeCommand(command)
+        const [userRejected, result] = await this.codey.executeCommand(command)
         if (userRejected) {
-          this.cline.didRejectTool = true
+          this.codey.didRejectTool = true
         }
-        this.cline.pushToolResult(block, result)
+        this.codey.pushToolResult(block, result)
         return
       }
     } catch (error) {
@@ -563,16 +563,16 @@ export class ToolExecutor {
     const result: string | undefined = block.params.result
     const command: string | undefined = block.params.command
     try {
-      const lastMessage = this.cline.clineMessages.at(-1)
+      const lastMessage = this.codey.codeyMessages.at(-1)
       if (block.partial) {
         if (command) {
           // the attempt_completion text is done, now we're getting command
           // remove the previous partial attempt_completion ask, replace with say, post state to webview, then stream command
 
-          // const secondLastMessage = this.clineMessages.at(-2)
+          // const secondLastMessage = this.codeyMessages.at(-2)
           if (lastMessage && lastMessage.ask === "command") {
             // update command
-            await this.cline.askUser(
+            await this.codey.askUser(
               "command",
               this.removeClosingTag(block, "command", command),
               block.partial
@@ -580,13 +580,13 @@ export class ToolExecutor {
           } else {
             // last message is completion_result
             // we have command string, which means we have the result as well, so finish it (doesnt have to exist yet)
-            await this.cline.sendMessage(
+            await this.codey.sendMessage(
               "completion_result",
               this.removeClosingTag(block, "result", result),
               undefined,
               false
             )
-            await this.cline.askUser(
+            await this.codey.askUser(
               "command",
               this.removeClosingTag(block, "command", command),
               block.partial
@@ -594,7 +594,7 @@ export class ToolExecutor {
           }
         } else {
           // no command, still outputting partial result
-          await this.cline.sendMessage(
+          await this.codey.sendMessage(
             "completion_result",
             this.removeClosingTag(block, "result", result),
             undefined,
@@ -604,19 +604,19 @@ export class ToolExecutor {
         return
       }
       if (!result) {
-        this.cline.consecutiveMistakeCount++
-        this.cline.pushToolResult(block,
+        this.codey.consecutiveMistakeCount++
+        this.codey.pushToolResult(block,
           await this.handleMissingParamError("attempt_completion", "result")
         )
         return
       }
-      this.cline.consecutiveMistakeCount = 0
+      this.codey.consecutiveMistakeCount = 0
 
       let commandResult: ToolResponse | undefined
       if (command) {
         if (lastMessage && lastMessage.ask !== "command") {
           // havent sent a command message yet so first send completion_result then command
-          await this.cline.sendMessage("completion_result", result, undefined, false)
+          await this.codey.sendMessage("completion_result", result, undefined, false)
         }
 
         // complete command message
@@ -624,25 +624,25 @@ export class ToolExecutor {
         if (!didApprove) {
           return
         }
-        const [userRejected, execCommandResult] = await this.cline.executeCommand(command!)
+        const [userRejected, execCommandResult] = await this.codey.executeCommand(command!)
         if (userRejected) {
-          this.cline.didRejectTool = true
-          this.cline.pushToolResult(block, execCommandResult)
+          this.codey.didRejectTool = true
+          this.codey.pushToolResult(block, execCommandResult)
           return
         }
         // user didn't reject, but the command may have output
         commandResult = execCommandResult
       } else {
-        await this.cline.sendMessage("completion_result", result, undefined, false)
+        await this.codey.sendMessage("completion_result", result, undefined, false)
       }
 
       // we already sent completion_result says, an empty string asks relinquishes control over button and field
-      const { response, text, images } = await this.cline.askUser("completion_result", "", false)
+      const { response, text, images } = await this.codey.askUser("completion_result", "", false)
       if (response === "yesButtonClicked") {
-        this.cline.pushToolResult(block, "") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
+        this.codey.pushToolResult(block, "") // signals to recursive loop to stop (for now this never happens since yesButtonClicked will trigger a new task)
         return
       }
-      await this.cline.sendMessage("user_feedback", text ?? "", images)
+      await this.codey.sendMessage("user_feedback", text ?? "", images)
 
       const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
       if (commandResult) {
@@ -657,11 +657,11 @@ export class ToolExecutor {
         text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`,
       })
       toolResults.push(...responseTemplates.imageBlocks(images))
-      this.cline.userMessageContent.push({
+      this.codey.userMessageContent.push({
         type: "text",
         text: `$getToolDescription(block)} Result:`,
       })
-      this.cline.userMessageContent.push(...toolResults)
+      this.codey.userMessageContent.push(...toolResults)
 
       return
 
@@ -675,21 +675,21 @@ export class ToolExecutor {
     const question: string | undefined = block.params.question
     try {
       if (block.partial) {
-        await this.cline.askUser("followup", this.removeClosingTag(block, "question", question), block.partial).catch(
+        await this.codey.askUser("followup", this.removeClosingTag(block, "question", question), block.partial).catch(
           () => { }
         )
         return
       }
       if (!question) {
-        this.cline.consecutiveMistakeCount++
+        this.codey.consecutiveMistakeCount++
         const missingParamError = await this.handleMissingParamError("ask_followup_question", "question")
-        this.cline.pushToolResult(block, missingParamError)
+        this.codey.pushToolResult(block, missingParamError)
         return
       }
-      this.cline.consecutiveMistakeCount = 0
-      const { text, images } = await this.cline.askUser("followup", question, false)
-      await this.cline.sendMessage("user_feedback", text ?? "", images)
-      this.cline.pushToolResult(block, responseTemplates.toolResult(`<answer>\n${text}\n</answer>`, images))
+      this.codey.consecutiveMistakeCount = 0
+      const { text, images } = await this.codey.askUser("followup", question, false)
+      await this.codey.sendMessage("user_feedback", text ?? "", images)
+      this.codey.pushToolResult(block, responseTemplates.toolResult(`<answer>\n${text}\n</answer>`, images))
       return
 
     } catch (error) {
@@ -708,8 +708,8 @@ export class ToolExecutor {
 
     if (!contentParam) {
       console.debug("Content parameter is missing.");
-      this.cline.consecutiveMistakeCount++;
-      this.cline.pushToolResult(block, await this.handleMissingParamError("search_replace", "content"));
+      this.codey.consecutiveMistakeCount++;
+      this.codey.pushToolResult(block, await this.handleMissingParamError("search_replace", "content"));
       return;
     }
 
@@ -820,7 +820,7 @@ export class ToolExecutor {
           originalContent,
           document.getText()
         ),
-      } satisfies ClineSayTool);
+      } satisfies CodeySayTool);
 
       const didApprove = await this.askApproval(block, "tool", completeMessage);
       if (!didApprove) {
@@ -847,7 +847,7 @@ export class ToolExecutor {
         });
 
         await document.save();
-        this.cline.pushToolResult(block, `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`);
+        this.codey.pushToolResult(block, `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`);
         await this.diffViewProvider.reset();
         return;
       }
@@ -855,10 +855,10 @@ export class ToolExecutor {
       // Show changes and get approval
       const { newProblemsMessage, userEdits } = await this.diffViewProvider.saveChanges();
       console.debug("Saved changes. New problems message:", newProblemsMessage, "User edits:", userEdits);
-      this.cline.didEditFile = true;
+      this.codey.didEditFile = true;
 
       if (!userEdits) {
-        this.cline.pushToolResult(block, `Search and replace completed successfully in ${filePath}.${newProblemsMessage}`);
+        this.codey.pushToolResult(block, `Search and replace completed successfully in ${filePath}.${newProblemsMessage}`);
         await this.diffViewProvider.reset();
         return;
       }
@@ -868,10 +868,10 @@ export class ToolExecutor {
         tool: "searchReplace",
         path: filePath,
         diff: userEdits,
-      } satisfies ClineSayTool);
+      } satisfies CodeySayTool);
 
-      await this.cline.sendMessage("user_feedback_diff", userFeedbackDiff);
-      this.cline.pushToolResult(block,
+      await this.codey.sendMessage("user_feedback_diff", userFeedbackDiff);
+      this.codey.pushToolResult(block,
         `The user made the following updates:\n\n${userEdits}\n\n` +
         `Changes applied successfully to ${filePath}.${newProblemsMessage}`
       );
@@ -890,7 +890,7 @@ export class ToolExecutor {
     const position: string | undefined = block.params.position;
     const content: string | undefined = block.params.content;
 
-    const sharedMessageProps: ClineSayTool = {
+    const sharedMessageProps: CodeySayTool = {
       tool: "insertCodeBlock",
       path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
     };
@@ -907,7 +907,7 @@ export class ToolExecutor {
       if (block.partial) {
         console.debug("Block is partial, sending partial message.");
         const partialMessage = JSON.stringify(sharedMessageProps);
-        await this.cline.askUser("tool", partialMessage, block.partial).catch(() => {
+        await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {
           console.debug("Partial message ask failed.");
         });
         return;
@@ -916,24 +916,24 @@ export class ToolExecutor {
       // Validate required parameters
       if (!relPath) {
         console.debug("Path is missing.");
-        this.cline.consecutiveMistakeCount++;
-        this.cline.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "path"));
+        this.codey.consecutiveMistakeCount++;
+        this.codey.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "path"));
         return;
       }
       if (!position) {
         console.debug("Position is missing.");
-        this.cline.consecutiveMistakeCount++;
-        this.cline.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "position"));
+        this.codey.consecutiveMistakeCount++;
+        this.codey.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "position"));
         return;
       }
       if (!content) {
         console.debug("Content is missing.");
-        this.cline.consecutiveMistakeCount++;
-        this.cline.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "content"));
+        this.codey.consecutiveMistakeCount++;
+        this.codey.pushToolResult(block, await this.handleMissingParamError("insert_code_block", "content"));
         return;
       }
 
-      this.cline.consecutiveMistakeCount = 0;
+      this.codey.consecutiveMistakeCount = 0;
 
       // Read the file
       const absolutePath = path.resolve(this.cwd, relPath);
@@ -965,7 +965,7 @@ export class ToolExecutor {
       // Show changes in diff view
       if (!this.diffViewProvider.isEditing) {
         console.debug("Diff view is not editing, opening diff view.");
-        await this.cline.askUser("tool", JSON.stringify(sharedMessageProps), true).catch(() => {
+        await this.codey.askUser("tool", JSON.stringify(sharedMessageProps), true).catch(() => {
           console.debug("Diff view opening ask failed.");
         });
         // First open with original content
@@ -985,27 +985,27 @@ export class ToolExecutor {
           this.diffViewProvider.originalContent,
           updatedContent
         ),
-      } satisfies ClineSayTool);
+      } satisfies CodeySayTool);
 
       console.debug("Asking for approval with complete message:", completeMessage);
-      const didApprove = await this.cline.askUser("tool", completeMessage, false).then(
+      const didApprove = await this.codey.askUser("tool", completeMessage, false).then(
         response => response.response === "yesButtonClicked"
       );
 
       if (!didApprove) {
         console.debug("Changes were not approved, reverting changes.");
         await this.diffViewProvider.revertChanges();
-        this.cline.pushToolResult(block, "Changes were rejected by the user.");
+        this.codey.pushToolResult(block, "Changes were rejected by the user.");
         return;
       }
 
       console.debug("Saving changes after approval.");
       const { newProblemsMessage, userEdits, finalContent } = await this.diffViewProvider.saveChanges();
-      this.cline.didEditFile = true;
+      this.codey.didEditFile = true;
 
       if (!userEdits) {
         console.debug("No user edits, pushing tool result.");
-        this.cline.pushToolResult(
+        this.codey.pushToolResult(
           block,
           `The code block was successfully inserted at line ${position} in ${relPath.toPosix()}.${newProblemsMessage}`
         );
@@ -1017,11 +1017,11 @@ export class ToolExecutor {
         tool: "insertCodeBlock",
         path: getReadablePath(this.cwd, relPath),
         diff: userEdits,
-      } satisfies ClineSayTool);
+      } satisfies CodeySayTool);
 
       console.debug("User made edits, sending feedback diff:", userFeedbackDiff);
-      await this.cline.sendMessage("user_feedback_diff", userFeedbackDiff);
-      this.cline.pushToolResult(
+      await this.codey.sendMessage("user_feedback_diff", userFeedbackDiff);
+      this.codey.pushToolResult(
         block,
         `The user made the following updates to your content:\n\n${userEdits}\n\n` +
         `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
@@ -1037,11 +1037,11 @@ export class ToolExecutor {
     } catch (error) {
       console.error("Error inserting code block:", error);
       const errorString = `Error inserting code block: ${JSON.stringify(error)}`;
-      await this.cline.sendMessage(
+      await this.codey.sendMessage(
         "error",
         `Error inserting code block:\n${error.message ?? JSON.stringify(error, null, 2)}`
       );
-      this.cline.pushToolResult(block, responseTemplates.toolError(errorString));
+      this.codey.pushToolResult(block, responseTemplates.toolError(errorString));
       await this.diffViewProvider.reset();
     }
   }

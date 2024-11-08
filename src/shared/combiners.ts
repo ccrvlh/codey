@@ -1,15 +1,15 @@
 import { COMMAND_OUTPUT_STRING } from "../shared/const"
-import { ClineMessage } from "./interfaces"
+import { CodeyMessage } from "./interfaces"
 
 /**
- * Combines API request start and finish messages in an array of ClineMessages.
+ * Combines API request start and finish messages in an array of CodeyMessages.
  *
  * This function looks for pairs of 'api_req_started' and 'api_req_finished' messages.
  * When it finds a pair, it combines them into a single 'api_req_combined' message.
  * The JSON data in the text fields of both messages are merged.
  *
- * @param messages - An array of ClineMessage objects to process.
- * @returns A new array of ClineMessage objects with API requests combined.
+ * @param messages - An array of CodeyMessage objects to process.
+ * @returns A new array of CodeyMessage objects with API requests combined.
  *
  * @example
  * const messages = [
@@ -19,8 +19,8 @@ import { ClineMessage } from "./interfaces"
  * const result = combineApiRequests(messages);
  * // Result: [{ type: "say", say: "api_req_started", text: '{"request":"GET /api/data","cost":0.005}', ts: 1000 }]
  */
-export function combineApiRequests(messages: ClineMessage[]): ClineMessage[] {
-	const combinedApiRequests: ClineMessage[] = []
+export function combineApiRequests(messages: CodeyMessage[]): CodeyMessage[] {
+	const combinedApiRequests: CodeyMessage[] = []
 
 	for (let i = 0; i < messages.length; i++) {
 		if (messages[i].type === "say" && messages[i].say === "api_req_started") {
@@ -65,18 +65,18 @@ export function combineApiRequests(messages: ClineMessage[]): ClineMessage[] {
 
 
 /**
- * Combines sequences of command and command_output messages in an array of ClineMessages.
+ * Combines sequences of command and command_output messages in an array of CodeyMessages.
  *
- * This function processes an array of ClineMessages objects, looking for sequences
+ * This function processes an array of CodeyMessages objects, looking for sequences
  * where a 'command' message is followed by one or more 'command_output' messages.
  * When such a sequence is found, it combines them into a single message, merging
  * their text contents.
  *
- * @param messages - An array of ClineMessage objects to process.
- * @returns A new array of ClineMessage objects with command sequences combined.
+ * @param messages - An array of CodeyMessage objects to process.
+ * @returns A new array of CodeyMessage objects with command sequences combined.
  *
  * @example
- * const messages: ClineMessage[] = [
+ * const messages: CodeyMessage[] = [
  *   { type: 'ask', ask: 'command', text: 'ls', ts: 1625097600000 },
  *   { type: 'ask', ask: 'command_output', text: 'file1.txt', ts: 1625097601000 },
  *   { type: 'ask', ask: 'command_output', text: 'file2.txt', ts: 1625097602000 }
@@ -84,8 +84,8 @@ export function combineApiRequests(messages: ClineMessage[]): ClineMessage[] {
  * const result = simpleCombineCommandSequences(messages);
  * // Result: [{ type: 'ask', ask: 'command', text: 'ls\nfile1.txt\nfile2.txt', ts: 1625097600000 }]
  */
-export function combineCommandSequences(messages: ClineMessage[]): ClineMessage[] {
-	const combinedCommands: ClineMessage[] = []
+export function combineCommandSequences(messages: CodeyMessage[]): CodeyMessage[] {
+	const combinedCommands: CodeyMessage[] = []
 
 	// First pass: combine commands with their outputs
 	for (let i = 0; i < messages.length; i++) {

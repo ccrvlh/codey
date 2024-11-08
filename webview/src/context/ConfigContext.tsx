@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
-import type { ClineConfig } from "../../../src/core/config"
+import type { CodeyConfig } from "../../../src/core/config"
 import { vscode } from "../utils/vscode"
 
-interface ConfigContextType extends ClineConfig {
+interface ConfigContextType extends CodeyConfig {
   setCustomInstructions: (value: string) => void
   setAlwaysAllowReadOnly: (value: boolean) => void
   setEditAutoScroll: (value: boolean) => void
@@ -16,7 +16,7 @@ interface ConfigContextType extends ClineConfig {
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined)
 
 export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [config, setConfig] = useState<ClineConfig>({
+  const [config, setConfig] = useState<CodeyConfig>({
     customInstructions: "",
     alwaysAllowReadOnly: false,
     editAutoScroll: false,

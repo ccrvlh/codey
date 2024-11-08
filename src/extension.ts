@@ -3,7 +3,7 @@
 import delay from "delay"
 import * as vscode from "vscode"
 import { ViewProvider } from "./core/webview"
-import { createClineAPI } from "./exports"
+import { createCodeyAPI } from "./exports"
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
 import { SIDEBAR_ID, TAB_PANEL_ID } from "./utils/const"
 import "./utils/path"; // necessary to have access to String.prototype.toPosix
@@ -22,10 +22,10 @@ let outputChannel: vscode.OutputChannel
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	outputChannel = vscode.window.createOutputChannel("Cline")
+	outputChannel = vscode.window.createOutputChannel("Codey")
 	context.subscriptions.push(outputChannel)
 
-	outputChannel.appendLine("Cline extension activated")
+	outputChannel.appendLine("Codey extension activated")
 
 	const sidebarProvider = new ViewProvider(context, outputChannel)
 
@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 	)
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.plusButtonClicked", async () => {
+		vscode.commands.registerCommand("codey.plusButtonClicked", async () => {
 			outputChannel.appendLine("Plus button Clicked")
 			await sidebarProvider.clearTask()
 			await sidebarProvider.postStateToWebview()
@@ -44,8 +44,8 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	)
 
-	const openClineInNewTab = async () => {
-		outputChannel.appendLine("Opening Cline in new tab")
+	const openCodeyInNewTab = async () => {
+		outputChannel.appendLine("Opening Codey in new tab")
 		// (this example uses webviewProvider activation event which is necessary to deserialize cached webview, but since we use retainContextWhenHidden, we don't need to use that event)
 		// https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
 		const tabProvider = new ViewProvider(context, outputChannel)
@@ -59,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 		const targetCol = hasVisibleEditors ? Math.max(lastCol + 1, 1) : vscode.ViewColumn.Two
 
-		const panel = vscode.window.createWebviewPanel(TAB_PANEL_ID, "Cline", targetCol, {
+		const panel = vscode.window.createWebviewPanel(TAB_PANEL_ID, "Codey", targetCol, {
 			enableScripts: true,
 			retainContextWhenHidden: true,
 			localResourceRoots: [context.extensionUri],
@@ -77,18 +77,18 @@ export function activate(context: vscode.ExtensionContext) {
 		await vscode.commands.executeCommand("workbench.action.lockEditorGroup")
 	}
 
-	context.subscriptions.push(vscode.commands.registerCommand("cline.popoutButtonClicked", openClineInNewTab))
-	context.subscriptions.push(vscode.commands.registerCommand("cline.openInNewTab", openClineInNewTab))
+	context.subscriptions.push(vscode.commands.registerCommand("codey.popoutButtonClicked", openCodeyInNewTab))
+	context.subscriptions.push(vscode.commands.registerCommand("codey.openInNewTab", openCodeyInNewTab))
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.settingsButtonClicked", () => {
+		vscode.commands.registerCommand("codey.settingsButtonClicked", () => {
 			//vscode.window.showInformationMessage(message)
 			sidebarProvider.postMessageToWebview({ type: "action", action: "settingsButtonClicked" })
 		})
 	)
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand("cline.historyButtonClicked", () => {
+		vscode.commands.registerCommand("codey.historyButtonClicked", () => {
 			sidebarProvider.postMessageToWebview({ type: "action", action: "historyButtonClicked" })
 		})
 	)
@@ -131,10 +131,10 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 	context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))
 
-	return createClineAPI(outputChannel, sidebarProvider)
+	return createCodeyAPI(outputChannel, sidebarProvider)
 }
 
 // This method is called when your extension is deactivated
 export function deactivate() {
-	outputChannel.appendLine("Cline extension deactivated")
+	outputChannel.appendLine("Codey extension deactivated")
 }

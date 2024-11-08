@@ -6,7 +6,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import styled from "styled-components"
 import { combineApiRequests, combineCommandSequences } from "../../../../src/shared/combiners"
 import { findLast } from "../../../../src/shared/helpers"
-import { ClineAsk, ClineSayTool, ExtensionMessage } from "../../../../src/shared/interfaces"
+import { CodeyAsk, CodeySayTool, ExtensionMessage } from "../../../../src/shared/interfaces"
 import { getApiMetrics } from "../../../../src/shared/metrics"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
@@ -27,10 +27,10 @@ interface ChatViewProps {
 export const MAX_IMAGES_PER_MESSAGE = 20 // Anthropic limits to 20 images
 
 const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryView }: ChatViewProps) => {
-  const { version, clineMessages: messages, taskHistory, apiConfiguration } = useExtensionState()
+  const { version, codeyMessages: messages, taskHistory, apiConfiguration } = useExtensionState()
 
   //const task = messages.length > 0 ? (messages[0].say === "task" ? messages[0] : undefined) : undefined) : undefined
-  const task = useMemo(() => messages.at(0), [messages]) // leaving this less safe version here since if the first message is not a task, then the extension is in a bad state and needs to be debugged (see Cline.abort)
+  const task = useMemo(() => messages.at(0), [messages]) // leaving this less safe version here since if the first message is not a task, then the extension is in a bad state and needs to be debugged (see Codey.abort)
   const modifiedMessages = useMemo(() => combineApiRequests(combineCommandSequences(messages.slice(1))), [messages])
   // has to be after api_req_finished are all reduced into api_req_started messages
   const apiMetrics = useMemo(() => getApiMetrics(modifiedMessages), [modifiedMessages])
@@ -41,7 +41,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
   const [selectedImages, setSelectedImages] = useState<string[]>([])
 
   // we need to hold on to the ask because useEffect > lastMessage will always let us know when an ask comes in and handle it, but by the time handleMessage is called, the last message might not be the ask anymore (it could be a say that followed)
-  const [clineAsk, setClineAsk] = useState<ClineAsk | undefined>(undefined)
+  const [codeyAsk, setCodeyAsk] = useState<CodeyAsk | undefined>(undefined)
   const [enableButtons, setEnableButtons] = useState<boolean>(false)
   const [primaryButtonText, setPrimaryButtonText] = useState<string | undefined>(undefined)
   const [secondaryButtonText, setSecondaryButtonText] = useState<string | undefined>(undefined)
@@ -68,30 +68,30 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
           switch (lastMessage.ask) {
             case "api_req_failed":
               setTextAreaDisabled(true)
-              setClineAsk("api_req_failed")
+              setCodeyAsk("api_req_failed")
               setEnableButtons(true)
               setPrimaryButtonText("Retry")
               setSecondaryButtonText("Start New Task")
               break
             case "mistake_limit_reached":
               setTextAreaDisabled(false)
-              setClineAsk("mistake_limit_reached")
+              setCodeyAsk("mistake_limit_reached")
               setEnableButtons(true)
               setPrimaryButtonText("Proceed Anyways")
               setSecondaryButtonText("Start New Task")
               break
             case "followup":
               setTextAreaDisabled(isPartial)
-              setClineAsk("followup")
+              setCodeyAsk("followup")
               setEnableButtons(isPartial)
               // setPrimaryButtonText(undefined)
               // setSecondaryButtonText(undefined)
               break
             case "tool":
               setTextAreaDisabled(isPartial)
-              setClineAsk("tool")
+              setCodeyAsk("tool")
               setEnableButtons(!isPartial)
-              const tool = JSON.parse(lastMessage.text || "{}") as ClineSayTool
+              const tool = JSON.parse(lastMessage.text || "{}") as CodeySayTool
               switch (tool.tool) {
                 case "editedExistingFile":
                 case "newFileCreated":
@@ -106,14 +106,14 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
               break
             case "command":
               setTextAreaDisabled(isPartial)
-              setClineAsk("command")
+              setCodeyAsk("command")
               setEnableButtons(!isPartial)
               setPrimaryButtonText("Run Command")
               setSecondaryButtonText("Reject")
               break
             case "command_output":
               setTextAreaDisabled(false)
-              setClineAsk("command_output")
+              setCodeyAsk("command_output")
               setEnableButtons(true)
               setPrimaryButtonText("Proceed While Running")
               setSecondaryButtonText(undefined)
@@ -121,14 +121,14 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
             case "completion_result":
               // extension waiting for feedback. but we can just present a new task button
               setTextAreaDisabled(isPartial)
-              setClineAsk("completion_result")
+              setCodeyAsk("completion_result")
               setEnableButtons(!isPartial)
               setPrimaryButtonText("Start New Task")
               setSecondaryButtonText(undefined)
               break
             case "resume_task":
               setTextAreaDisabled(false)
-              setClineAsk("resume_task")
+              setCodeyAsk("resume_task")
               setEnableButtons(true)
               setPrimaryButtonText("Resume Task")
               setSecondaryButtonText(undefined)
@@ -136,7 +136,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
               break
             case "resume_completed_task":
               setTextAreaDisabled(false)
-              setClineAsk("resume_completed_task")
+              setCodeyAsk("resume_completed_task")
               setEnableButtons(true)
               setPrimaryButtonText("Start New Task")
               setSecondaryButtonText(undefined)
@@ -153,7 +153,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
                 setInputValue("")
                 setTextAreaDisabled(true)
                 setSelectedImages([])
-                setClineAsk(undefined)
+                setCodeyAsk(undefined)
                 setEnableButtons(false)
               }
               break
@@ -173,7 +173,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
       // this would get called after sending the first message, so we have to watch messages.length instead
       // No messages, so user has to submit a task
       // setTextAreaDisabled(false)
-      // setClineAsk(undefined)
+      // setCodeyAsk(undefined)
       // setPrimaryButtonText(undefined)
       // setSecondaryButtonText(undefined)
     }
@@ -182,7 +182,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
   useEffect(() => {
     if (messages.length === 0) {
       setTextAreaDisabled(false)
-      setClineAsk(undefined)
+      setCodeyAsk(undefined)
       setEnableButtons(false)
       setPrimaryButtonText(undefined)
       setSecondaryButtonText(undefined)
@@ -194,9 +194,9 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
   }, [task?.ts])
 
   const isStreaming = useMemo(() => {
-    const isLastAsk = !!modifiedMessages.at(-1)?.ask // checking clineAsk isn't enough since messages effect may be called again for a tool for example, set clineAsk to its value, and if the next message is not an ask then it doesn't reset. This is likely due to how much more often we're updating messages as compared to before, and should be resolved with optimizations as it's likely a rendering bug. but as a final guard for now, the cancel button will show if the last message is not an ask
+    const isLastAsk = !!modifiedMessages.at(-1)?.ask // checking codeyAsk isn't enough since messages effect may be called again for a tool for example, set codeyAsk to its value, and if the next message is not an ask then it doesn't reset. This is likely due to how much more often we're updating messages as compared to before, and should be resolved with optimizations as it's likely a rendering bug. but as a final guard for now, the cancel button will show if the last message is not an ask
     const isToolCurrentlyAsking =
-      isLastAsk && clineAsk !== undefined && enableButtons && primaryButtonText !== undefined
+      isLastAsk && codeyAsk !== undefined && enableButtons && primaryButtonText !== undefined
     if (isToolCurrentlyAsking) {
       return false
     }
@@ -216,7 +216,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
     }
 
     return false
-  }, [modifiedMessages, clineAsk, enableButtons, primaryButtonText])
+  }, [modifiedMessages, codeyAsk, enableButtons, primaryButtonText])
 
   const handleSendMessage = useCallback(
     (text: string, images: string[]) => {
@@ -224,8 +224,8 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
       if (text || images.length > 0) {
         if (messages.length === 0) {
           vscode.postMessage({ type: "newTask", text, images })
-        } else if (clineAsk) {
-          switch (clineAsk) {
+        } else if (codeyAsk) {
+          switch (codeyAsk) {
             case "followup":
             case "tool":
             case "command": // user can provide feedback to a tool or command use
@@ -247,14 +247,14 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
         setInputValue("")
         setTextAreaDisabled(true)
         setSelectedImages([])
-        setClineAsk(undefined)
+        setCodeyAsk(undefined)
         setEnableButtons(false)
         // setPrimaryButtonText(undefined)
         // setSecondaryButtonText(undefined)
         disableAutoScrollRef.current = false
       }
     },
-    [messages.length, clineAsk]
+    [messages.length, codeyAsk]
   )
 
   const startNewTask = useCallback(() => {
@@ -262,10 +262,10 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
   }, [])
 
   /*
-	This logic depends on the useEffect[messages] above to set clineAsk, after which buttons are shown and we then send an askResponse to the extension.
+	This logic depends on the useEffect[messages] above to set codeyAsk, after which buttons are shown and we then send an askResponse to the extension.
 	*/
   const handlePrimaryButtonClick = useCallback(() => {
-    switch (clineAsk) {
+    switch (codeyAsk) {
       case "api_req_failed":
       case "command":
       case "command_output":
@@ -281,12 +281,12 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
         break
     }
     setTextAreaDisabled(true)
-    setClineAsk(undefined)
+    setCodeyAsk(undefined)
     setEnableButtons(false)
     // setPrimaryButtonText(undefined)
     // setSecondaryButtonText(undefined)
     disableAutoScrollRef.current = false
-  }, [clineAsk, startNewTask])
+  }, [codeyAsk, startNewTask])
 
   const handleSecondaryButtonClick = useCallback(() => {
     if (isStreaming) {
@@ -295,7 +295,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
       return
     }
 
-    switch (clineAsk) {
+    switch (codeyAsk) {
       case "api_req_failed":
       case "mistake_limit_reached":
         startNewTask()
@@ -307,12 +307,12 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
         break
     }
     setTextAreaDisabled(true)
-    setClineAsk(undefined)
+    setCodeyAsk(undefined)
     setEnableButtons(false)
     // setPrimaryButtonText(undefined)
     // setSecondaryButtonText(undefined)
     disableAutoScrollRef.current = false
-  }, [clineAsk, startNewTask, isStreaming])
+  }, [codeyAsk, startNewTask, isStreaming])
 
   const handleTaskCloseButtonClick = useCallback(() => {
     startNewTask()
@@ -388,7 +388,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
     return modifiedMessages.filter((message) => {
       switch (message.ask) {
         case "completion_result":
-          // don't show a chat row for a completion_result ask without text. This specific type of message only occurs if cline wants to execute a command as part of its completion result, in which case we interject the completion_result tool with the execute_command tool.
+          // don't show a chat row for a completion_result ask without text. This specific type of message only occurs if codey wants to execute a command as part of its completion result, in which case we interject the completion_result tool with the execute_command tool.
           if (message.text === "") {
             return false
           }
@@ -403,7 +403,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
         case "api_req_retried": // this message is used to update the latest api_req_started that the request was retried
           return false
         case "text":
-          // Sometimes cline returns an empty text message, we don't want to render these. (We also use a say text for user messages, so in case they just sent images we still render that)
+          // Sometimes codey returns an empty text message, we don't want to render these. (We also use a say text for user messages, so in case they just sent images we still render that)
           if ((message.text ?? "") === "" && (message.images?.length ?? 0) === 0) {
             return false
           }

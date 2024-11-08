@@ -59,7 +59,7 @@ export const responseTemplates = {
 
   formatFilesList: (absolutePath: string, files: string[], didHitLimit: boolean): string => {
     // Sort so files are listed under their respective directories to make it clear what files are children of what directories.
-    // Since we build file list top down, even if file list is truncated it will show directories that cline can then explore further.
+    // Since we build file list top down, even if file list is truncated it will show directories that codey can then explore further.
     const sorted = files
       .map((file) => {
         const relativePath = path.relative(absolutePath, file).toPosix()

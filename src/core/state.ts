@@ -2,7 +2,7 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import fs from "fs/promises"
 import path from "path"
 import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
-import { ClineMessage } from "../shared/interfaces"
+import { CodeyMessage } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
 import { AssistantMessageContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
@@ -14,7 +14,7 @@ import { findLastIndex } from "../utils/helpers"
  */
 export class ConversationState {
   apiConversationHistory: Anthropic.MessageParam[] = []
-  clineMessages: ClineMessage[] = []
+  codeyMessages: CodeyMessage[] = []
   lastMessageTs?: number
   consecutiveMistakeCount: number = 0
   desktopPath: string
@@ -34,7 +34,7 @@ export class ConversationState {
 
   reset() {
     this.apiConversationHistory = []
-    this.clineMessages = []
+    this.codeyMessages = []
     this.lastMessageTs = undefined
     this.consecutiveMistakeCount = 0
   }
@@ -59,14 +59,14 @@ export class ConversationState {
     return this.lastMessageTs
   }
 
-  async addMessage(message: ClineMessage) {
-    this.clineMessages.push(message)
+  async addMessage(message: CodeyMessage) {
+    this.codeyMessages.push(message)
     this.lastMessageTs = message.ts
-    await this.saveClineMessages()
+    await this.saveCodeyMessages()
   }
 
-  getLastMessage(): ClineMessage | undefined {
-    return this.clineMessages.at(-1)
+  getLastMessage(): CodeyMessage | undefined {
+    return this.codeyMessages.at(-1)
   }
 
   isLastMessagePartial(): boolean {
@@ -74,11 +74,11 @@ export class ConversationState {
     return lastMessage ? !!lastMessage.partial : false
   }
 
-  async updateLastMessage(updates: Partial<ClineMessage>) {
+  async updateLastMessage(updates: Partial<CodeyMessage>) {
     const lastMessage = this.getLastMessage()
     if (lastMessage) {
       Object.assign(lastMessage, updates)
-      await this.saveClineMessages()
+      await this.saveCodeyMessages()
     }
   }
 
@@ -129,28 +129,28 @@ export class ConversationState {
     }
   }
 
-  async addToClineMessages(message: ClineMessage) {
-    this.clineMessages.push(message)
-    await this.saveClineMessages()
+  async addToCodeyMessages(message: CodeyMessage) {
+    this.codeyMessages.push(message)
+    await this.saveCodeyMessages()
   }
 
-  async overwriteClineMessages(newMessages: ClineMessage[]) {
-    this.clineMessages = newMessages
-    await this.saveClineMessages()
+  async overwriteCodeyMessages(newMessages: CodeyMessage[]) {
+    this.codeyMessages = newMessages
+    await this.saveCodeyMessages()
   }
 
-  async saveClineMessages() {
+  async saveCodeyMessages() {
     try {
       const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
       const filePath = path.join(dir, GlobalFileNames.uiMessages)
-      await fs.writeFile(filePath, JSON.stringify(this.clineMessages))
+      await fs.writeFile(filePath, JSON.stringify(this.codeyMessages))
       // combined as they are in ChatView
-      const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.clineMessages.slice(1))))
-      const taskMessage = this.clineMessages[0] // first message is always the task say
+      const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.codeyMessages.slice(1))))
+      const taskMessage = this.codeyMessages[0] // first message is always the task say
       const lastRelevantMessage =
-        this.clineMessages[
+        this.codeyMessages[
         findLastIndex(
-          this.clineMessages,
+          this.codeyMessages,
           (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
         )
         ]
@@ -165,7 +165,7 @@ export class ConversationState {
         totalCost: apiMetrics.totalCost,
       })
     } catch (error) {
-      console.error("Failed to save cline messages:", error)
+      console.error("Failed to save codey messages:", error)
     }
   }
 }
@@ -303,7 +303,7 @@ export class TaskState {
 /**
  * Main state management class that combines all state aspects
  */
-export class ClineState {
+export class CodeyState {
   conversation: ConversationState
   streaming: StreamingState
   task: TaskState
@@ -331,10 +331,10 @@ export class ClineState {
   }
 
   /**
-   * Updates Cline messages and manages related state
+   * Updates Codey messages and manages related state
    */
-  addToClineMessages(message: ClineMessage) {
-    this.conversation.clineMessages.push(message)
+  addToCodeyMessages(message: CodeyMessage) {
+    this.conversation.codeyMessages.push(message)
     this.conversation.lastMessageTs = message.ts
   }
 

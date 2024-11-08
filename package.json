@@ -1,6 +1,6 @@
 {
-  "name": "claude-dev",
-  "displayName": "Cline (prev. Claude Dev)",
+  "name": "codey",
+  "displayName": "Codey (prev. Codey)",
   "description": "Autonomous coding agent right in your IDE, capable of creating/editing files, executing commands, and more with your permission every step of the way.",
   "version": "2.0.19",
   "icon": "assets/icons/icon.png",
@@ -12,15 +12,15 @@
     "vscode": "^1.84.0"
   },
   "author": {
-    "name": "Cline Bot Inc."
+    "name": "Codey Bot Inc."
   },
   "license": "Apache-2.0",
   "publisher": "ccrvlh",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cline/cline"
+    "url": "https://github.com/ccrvlh/codey"
   },
-  "homepage": "https://cline.bot",
+  "homepage": "https://codey.bot",
   "categories": [
     "AI",
     "Chat",
@@ -30,7 +30,7 @@
     "Testing"
   ],
   "keywords": [
-    "cline",
+    "codey",
     "claude",
     "dev",
     "openrouter",
@@ -48,69 +48,69 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "claude-dev-ActivityBar",
-          "title": "Cline",
+          "id": "codey-ActivityBar",
+          "title": "Codey",
           "icon": "assets/icons/icon.png"
         }
       ]
     },
     "views": {
-      "claude-dev-ActivityBar": [
+      "codey-ActivityBar": [
         {
           "type": "webview",
-          "id": "claude-dev.SidebarProvider",
+          "id": "codey.SidebarProvider",
           "name": ""
         }
       ]
     },
     "commands": [
       {
-        "command": "cline.plusButtonClicked",
+        "command": "codey.plusButtonClicked",
         "title": "New Task",
         "icon": "$(add)"
       },
       {
-        "command": "cline.historyButtonClicked",
+        "command": "codey.historyButtonClicked",
         "title": "History",
         "icon": "$(history)"
       },
       {
-        "command": "cline.popoutButtonClicked",
+        "command": "codey.popoutButtonClicked",
         "title": "Open in Editor",
         "icon": "$(link-external)"
       },
       {
-        "command": "cline.settingsButtonClicked",
+        "command": "codey.settingsButtonClicked",
         "title": "Settings",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "cline.openInNewTab",
+        "command": "codey.openInNewTab",
         "title": "Open In New Tab",
-        "category": "Cline"
+        "category": "Codey"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "cline.plusButtonClicked",
+          "command": "codey.plusButtonClicked",
           "group": "navigation@1",
-          "when": "view == claude-dev.SidebarProvider"
+          "when": "view == codey.SidebarProvider"
         },
         {
-          "command": "cline.historyButtonClicked",
+          "command": "codey.historyButtonClicked",
           "group": "navigation@2",
-          "when": "view == claude-dev.SidebarProvider"
+          "when": "view == codey.SidebarProvider"
         },
         {
-          "command": "cline.popoutButtonClicked",
+          "command": "codey.popoutButtonClicked",
           "group": "navigation@3",
-          "when": "view == claude-dev.SidebarProvider"
+          "when": "view == codey.SidebarProvider"
         },
         {
-          "command": "cline.settingsButtonClicked",
+          "command": "codey.settingsButtonClicked",
           "group": "navigation@4",
-          "when": "view == claude-dev.SidebarProvider"
+          "when": "view == codey.SidebarProvider"
         }
       ]
     }

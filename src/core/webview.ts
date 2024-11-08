@@ -30,7 +30,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 	private latestAnnouncementId = "oct-9-2024" // update to some unique identifier when we add a new announcement
 
 	constructor(readonly context: vscode.ExtensionContext, private readonly outputChannel: vscode.OutputChannel) {
-		this.outputChannel.appendLine("ClineProvider instantiated")
+		this.outputChannel.appendLine("CodeyProvider instantiated")
 		ViewProvider.activeInstances.add(this)
 		this.workspaceTracker = new WorkspaceTracker(this)
 		this.configManager = new ConfigManager(context)
@@ -42,7 +42,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 		- https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
 		*/
 	async dispose() {
-		this.outputChannel.appendLine("Disposing ClineProvider...")
+		this.outputChannel.appendLine("Disposing CodeyProvider...")
 		await this.clearTask()
 		this.outputChannel.appendLine("Cleared task")
 		if (this.view && "dispose" in this.view) {
@@ -140,14 +140,14 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 		this.outputChannel.appendLine("Webview view resolved")
 	}
 
-	async initClineWithTask(task?: string, images?: string[]) {
+	async initCodeyWithTask(task?: string, images?: string[]) {
 		await this.clearTask()
 		const { apiConfiguration } = await this.getState()
 		const config = await this.configManager.getConfig()
 		this.agent = new Agent(this, apiConfiguration, config, task, images, undefined)
 	}
 
-	async initClineWithHistoryItem(historyItem: HistoryItem) {
+	async initCodeyWithHistoryItem(historyItem: HistoryItem) {
 		await this.clearTask()
 		const { apiConfiguration } = await this.getState()
 		const config = await this.configManager.getConfig()
@@ -243,7 +243,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:; script-src 'nonce-${nonce}';">
             <link rel="stylesheet" type="text/css" href="${stylesUri}">
 			<link href="${codiconsUri}" rel="stylesheet" />
-            <title>Cline</title>
+            <title>Codey</title>
           </head>
           <body>
             <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -287,8 +287,8 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 						// You can send any JSON serializable data.
 						// Could also do this in extension .ts
 						//this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
-						// initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
-						await this.initClineWithTask(message.text, message.images)
+						// initializing new instance of Codey will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
+						await this.initCodeyWithTask(message.text, message.images)
 						break
 					case "apiConfiguration":
 						if (message.apiConfiguration) {
@@ -419,11 +419,11 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 								console.error("Failed to abort task")
 							})
 							if (this.agent) {
-								// 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
+								// 'abandoned' will prevent this codey instance from affecting future codey instance gui. this may happen if its hanging on a streaming request
 								this.agent.abandoned = true
 							}
-							await this.initClineWithHistoryItem(historyItem) // clears task again, so we need to abortTask manually above
-							// await this.postStateToWebview() // new Cline instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
+							await this.initCodeyWithHistoryItem(historyItem) // clears task again, so we need to abortTask manually above
+							// await this.postStateToWebview() // new Codey instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
 						}
 
 						break
@@ -626,7 +626,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 		if (id !== this.agent?.taskId) {
 			// non-current task
 			const { historyItem } = await this.getTaskWithId(id)
-			await this.initClineWithHistoryItem(historyItem) // clears existing task
+			await this.initCodeyWithHistoryItem(historyItem) // clears existing task
 		}
 		await this.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
 	}
@@ -686,7 +686,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 			alwaysAllowReadOnly,
 			editAutoScroll,
 			uriScheme: vscode.env.uriScheme,
-			clineMessages: this.agent?.clineMessages || [],
+			codeyMessages: this.agent?.codeyMessages || [],
 			taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
 			shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
 		}

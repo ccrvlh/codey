@@ -19,9 +19,9 @@ import {
   ApiConfiguration,
   APIRequestCancelReason,
   APIRequestInfo,
-  ClineAsk,
-  ClineMessage,
-  ClineSay, ExtensionMessageType, HistoryItem,
+  CodeyAsk,
+  CodeyMessage,
+  CodeySay, ExtensionMessageType, HistoryItem,
   UserResponse
 } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
@@ -49,7 +49,7 @@ export class Agent {
 
   // State
   apiConversationHistory: Anthropic.MessageParam[] = []
-  clineMessages: ClineMessage[] = []
+  codeyMessages: CodeyMessage[] = []
   didFinishAborting = false
   abandoned = false
   consecutiveMistakeCount: number = 0
@@ -131,7 +131,7 @@ export class Agent {
     }
   }
 
-  private async getSavedClineMessages(storagePath: string, taskId: string): Promise<ClineMessage[]> {
+  private async getSavedCodeyMessages(storagePath: string, taskId: string): Promise<CodeyMessage[]> {
     const dir = await ensureTaskDirectoryExists(storagePath, taskId)
     const filePath = path.join(dir, GlobalFileNames.uiMessages)
     if (await fileExistsAtPath(filePath)) {
@@ -149,17 +149,17 @@ export class Agent {
     return []
   }
 
-  private async addToClineMessages(message: ClineMessage) {
-    this.clineMessages.push(message)
-    await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+  private async addToCodeyMessages(message: CodeyMessage) {
+    this.codeyMessages.push(message)
+    await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
   }
 
-  private async overwriteClineMessages(newMessages: ClineMessage[]) {
-    this.clineMessages = newMessages
-    await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+  private async overwriteCodeyMessages(newMessages: CodeyMessage[]) {
+    this.codeyMessages = newMessages
+    await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
   }
 
-  private async saveClineMessages(storagePath: string, taskId: string, messages: ClineMessage[]) {
+  private async saveCodeyMessages(storagePath: string, taskId: string, messages: CodeyMessage[]) {
     try {
       const dir = await ensureTaskDirectoryExists(storagePath, taskId)
       const filePath = path.join(dir, GlobalFileNames.uiMessages)
@@ -183,25 +183,25 @@ export class Agent {
         totalCost: apiMetrics.totalCost,
       })
     } catch (error) {
-      console.error("Failed to save cline messages:", error)
+      console.error("Failed to save codey messages:", error)
     }
   }
 
   // Webview Methods
 
-  async askUser(type: ClineAsk, text?: string, partial?: boolean): Promise<AskUserResponse> {
+  async askUser(type: CodeyAsk, text?: string, partial?: boolean): Promise<AskUserResponse> {
     // partial has three valid states true (partial message), false (completion of partial message), undefined (individual complete message)
-    // If this Cline instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background
-    // in which case we don't want to send its result to the webview as it is attached to a new instance of Cline now.
+    // If this Codey instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background
+    // in which case we don't want to send its result to the webview as it is attached to a new instance of Codey now.
     // So we can safely ignore the result of any active promises, and this class will be deallocated.
-    // (Although we set Cline = undefined in provider, that simply removes the reference to this instance,
+    // (Although we set Codey = undefined in provider, that simply removes the reference to this instance,
     // but the instance is still alive until this promise resolves or rejects.)
     if (this.abort) {
-      throw new Error("Cline instance aborted")
+      throw new Error("Codey instance aborted")
     }
     let askTs: number
     if (partial !== undefined) {
-      const lastMessage = this.clineMessages.at(-1)
+      const lastMessage = this.codeyMessages.at(-1)
       const isUpdatingPreviousPartial =
         lastMessage && lastMessage.partial && lastMessage.type === "ask" && lastMessage.ask === type
       if (partial) {
@@ -211,7 +211,7 @@ export class Agent {
           lastMessage.partial = partial
           // todo be more efficient about saving and posting only new data or one whole message at a time so ignore partial for saves,
           // and only post parts of partial message instead of whole array in new listener
-          // await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+          // await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
           const msg = { type: "partialMessage" as ExtensionMessageType, partialMessage: lastMessage }
           await this.providerRef.deref()?.postMessageToWebview(msg)
           throw new Error("Current ask promise was ignored 1")
@@ -219,7 +219,7 @@ export class Agent {
           // this is a new partial message, so add it with partial state
           askTs = Date.now()
           this.lastMessageTs = askTs
-          await this.addToClineMessages({ ts: askTs, type: "ask", ask: type, text, partial })
+          await this.addToCodeyMessages({ ts: askTs, type: "ask", ask: type, text, partial })
           await this.providerRef.deref()?.postStateToWebview()
           throw new Error("Current ask promise was ignored 2")
         }
@@ -240,7 +240,7 @@ export class Agent {
           this.lastMessageTs = askTs
           lastMessage.text = text
           lastMessage.partial = false
-          await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+          await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
           const msg = { type: "partialMessage" as ExtensionMessageType, partialMessage: lastMessage }
           await this.providerRef.deref()?.postMessageToWebview(msg)
         } else {
@@ -248,17 +248,17 @@ export class Agent {
           await this.resetUserResponse()
           askTs = Date.now()
           this.lastMessageTs = askTs
-          await this.addToClineMessages({ ts: askTs, type: "ask", ask: type, text })
+          await this.addToCodeyMessages({ ts: askTs, type: "ask", ask: type, text })
           await this.providerRef.deref()?.postStateToWebview()
         }
       }
     } else {
       // this is a new non-partial message, so add it like normal
-      // const lastMessage = this.clineMessages.at(-1)
+      // const lastMessage = this.codeyMessages.at(-1)
       await this.resetUserResponse()
       askTs = Date.now()
       this.lastMessageTs = askTs
-      await this.addToClineMessages({ ts: askTs, type: "ask", ask: type, text })
+      await this.addToCodeyMessages({ ts: askTs, type: "ask", ask: type, text })
       await this.providerRef.deref()?.postStateToWebview()
     }
 
@@ -285,21 +285,21 @@ export class Agent {
     this.userResponseImages = images
   }
 
-  async sendMessage(type: ClineSay, text?: string, images?: string[], partial?: boolean): Promise<undefined> {
+  async sendMessage(type: CodeySay, text?: string, images?: string[], partial?: boolean): Promise<undefined> {
     if (this.abort) {
-      throw new Error("Cline instance aborted")
+      throw new Error("Codey instance aborted")
     }
 
     if (partial === undefined) {
       // this is a new non-partial message, so add it like normal
       const sayTs = Date.now()
       this.lastMessageTs = sayTs
-      await this.addToClineMessages({ ts: sayTs, type: "say", say: type, text, images })
+      await this.addToCodeyMessages({ ts: sayTs, type: "say", say: type, text, images })
       await this.providerRef.deref()?.postStateToWebview()
       return
     }
 
-    const lastMessage = this.clineMessages.at(-1)
+    const lastMessage = this.codeyMessages.at(-1)
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
 
     if (partial && isUpdatingPreviousPartial) {
@@ -316,7 +316,7 @@ export class Agent {
       // this is a new partial message, so add it with partial state
       const sayTs = Date.now()
       this.lastMessageTs = sayTs
-      await this.addToClineMessages({ ts: sayTs, type: "say", say: type, text, images, partial })
+      await this.addToCodeyMessages({ ts: sayTs, type: "say", say: type, text, images, partial })
       await this.providerRef.deref()?.postStateToWebview()
       return
     }
@@ -330,7 +330,7 @@ export class Agent {
       lastMessage.partial = false
 
       // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-      await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+      await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
       const msg = { type: "partialMessage" as ExtensionMessageType, partialMessage: lastMessage }
       await this.providerRef.deref()?.postMessageToWebview(msg)
       return
@@ -339,7 +339,7 @@ export class Agent {
     // this is a new partial=false message, so add it like normal
     const sayTs = Date.now()
     this.lastMessageTs = sayTs
-    await this.addToClineMessages({ ts: sayTs, type: "say", say: type, text, images })
+    await this.addToCodeyMessages({ ts: sayTs, type: "say", say: type, text, images })
     await this.providerRef.deref()?.postStateToWebview()
     return
   }
@@ -347,9 +347,9 @@ export class Agent {
   // Tasks
 
   private async startTask(task?: string, images?: string[]): Promise<void> {
-    // conversationHistory (for API) and clineMessages (for webview) need to be in sync
-    // if the extension process were killed, then on restart the clineMessages might not be empty, so we need to set it to [] when we create a new Cline client (otherwise webview would show stale messages from previous session)
-    this.clineMessages = []
+    // conversationHistory (for API) and codeyMessages (for webview) need to be in sync
+    // if the extension process were killed, then on restart the codeyMessages might not be empty, so we need to set it to [] when we create a new Codey client (otherwise webview would show stale messages from previous session)
+    this.codeyMessages = []
     this.apiConversationHistory = []
     await this.providerRef.deref()?.postStateToWebview()
 
@@ -366,15 +366,15 @@ export class Agent {
   }
 
   private async resumeTaskFromHistory() {
-    const modifiedClineMessages = await this.getSavedClineMessages(this.globalStoragePath, this.taskId)
+    const modifiedCodeyMessages = await this.getSavedCodeyMessages(this.globalStoragePath, this.taskId)
 
     // Remove any resume messages that may have been added before
     const lastRelevantMessageIndex = findLastIndex(
-      modifiedClineMessages,
+      modifiedCodeyMessages,
       (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
     )
     if (lastRelevantMessageIndex !== -1) {
-      modifiedClineMessages.splice(lastRelevantMessageIndex + 1)
+      modifiedCodeyMessages.splice(lastRelevantMessageIndex + 1)
     }
 
     // since we don't use api_req_finished anymore
@@ -382,29 +382,29 @@ export class Agent {
     // if it doesn't and no cancellation reason to present,
     // then we remove it since it indicates an api request without any partial content streamed
     const lastApiReqStartedIndex = findLastIndex(
-      modifiedClineMessages,
+      modifiedCodeyMessages,
       (m) => m.type === "say" && m.say === "api_req_started"
     )
     if (lastApiReqStartedIndex !== -1) {
-      const lastApiReqStarted = modifiedClineMessages[lastApiReqStartedIndex]
+      const lastApiReqStarted = modifiedCodeyMessages[lastApiReqStartedIndex]
       const { cost, cancelReason }: APIRequestInfo = JSON.parse(lastApiReqStarted.text || "{}")
       if (cost === undefined && cancelReason === undefined) {
-        modifiedClineMessages.splice(lastApiReqStartedIndex, 1)
+        modifiedCodeyMessages.splice(lastApiReqStartedIndex, 1)
       }
     }
 
-    await this.overwriteClineMessages(modifiedClineMessages)
-    this.clineMessages = await this.getSavedClineMessages(this.globalStoragePath, this.taskId)
+    await this.overwriteCodeyMessages(modifiedCodeyMessages)
+    this.codeyMessages = await this.getSavedCodeyMessages(this.globalStoragePath, this.taskId)
 
-    // Now present the cline messages to the user and ask if they want to resume
+    // Now present the codey messages to the user and ask if they want to resume
 
-    const lastClineMessage = this.clineMessages
+    const lastCodeyMessage = this.codeyMessages
       .slice()
       .reverse()
       .find((m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")) // could be multiple resume tasks
 
-    let askType: ClineAsk
-    if (lastClineMessage?.ask === "completion_result") {
+    let askType: CodeyAsk
+    if (lastCodeyMessage?.ask === "completion_result") {
       askType = "resume_completed_task"
     } else {
       askType = "resume_task"
@@ -419,7 +419,7 @@ export class Agent {
       responseImages = images
     }
 
-    // need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with cline messages
+    // need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with codey messages
 
     let existingApiConversationHistory: Anthropic.Messages.MessageParam[] =
       await getSavedApiConversationHistory(this.globalStoragePath, this.taskId)
@@ -531,8 +531,8 @@ export class Agent {
 
     let newUserContent: UserContent = [...modifiedOldUserContent]
 
-    const agoText = timeAgoDescription(lastClineMessage?.ts ?? Date.now())
-    const wasRecent = lastClineMessage?.ts && Date.now() - lastClineMessage.ts < 30_000
+    const agoText = timeAgoDescription(lastCodeyMessage?.ts ?? Date.now())
+    const wasRecent = lastCodeyMessage?.ts && Date.now() - lastCodeyMessage.ts < 30_000
 
     newUserContent.push({
       type: "text",
@@ -558,14 +558,14 @@ export class Agent {
     let nextUserContent = userContent
     let includeFileDetails = true
     while (!this.abort) {
-      const didEndLoop = await this.recursivelyMakeClineRequests(nextUserContent, includeFileDetails)
+      const didEndLoop = await this.recursivelyMakeCodeyRequests(nextUserContent, includeFileDetails)
       includeFileDetails = false // we only need file details the first time
 
-      //  The way this agentic loop works is that cline will be given a task that he then calls tools to complete.
+      //  The way this agentic loop works is that codey will be given a task that he then calls tools to complete.
       // unless there's an attempt_completion call, we keep responding back to him with his tool's responses until
       // he either attempt_completion or does not use anymore tools. If he does not use anymore tools,
       // we ask him to consider if he's completed the task and then call attempt_completion, otherwise proceed with completing the task.
-      // There is a MAX_REQUESTS_PER_TASK limit to prevent infinite requests, but Cline is prompted to finish the task as efficiently as he can.
+      // There is a MAX_REQUESTS_PER_TASK limit to prevent infinite requests, but Codey is prompted to finish the task as efficiently as he can.
       // const totalCost = this.calculateApiCost(totalInputTokens, totalOutputTokens)
       if (didEndLoop) {
         // For now a task never 'completes'. This will only happen if the user hits max requests and denies resetting the count.
@@ -574,7 +574,7 @@ export class Agent {
       } else {
         // this.say(
         // 	"tool",
-        // 	"Cline responded with only text blocks but has not called attempt_completion yet. Forcing him to continue with task..."
+        // 	"Codey responded with only text blocks but has not called attempt_completion yet. Forcing him to continue with task..."
         // )
         nextUserContent = [
           {
@@ -716,7 +716,7 @@ export class Agent {
   async getEnvironmentDetails(includeFileDetails: boolean = false) {
     let details = ""
 
-    // It could be useful for cline to know if the user went from one or no file to another between messages, so we always include this context
+    // It could be useful for codey to know if the user went from one or no file to another between messages, so we always include this context
     details += "\n\n# VSCode Visible Files"
     const visibleFiles = vscode.window.visibleTextEditors
       ?.map((editor) => editor.document?.uri?.fsPath)
@@ -879,7 +879,7 @@ export class Agent {
     // If the previous API request's total token usage is close to the context window,
     // truncate the conversation history to free up space for the new request
     if (previousApiReqIndex >= 0) {
-      const previousRequest = this.clineMessages[previousApiReqIndex]
+      const previousRequest = this.codeyMessages[previousApiReqIndex]
       if (previousRequest && previousRequest.text) {
         const { tokensIn, tokensOut, cacheWrites, cacheReads }: APIRequestInfo = JSON.parse(
           previousRequest.text
@@ -929,12 +929,12 @@ export class Agent {
     yield* iterator
   }
 
-  async recursivelyMakeClineRequests(
+  async recursivelyMakeCodeyRequests(
     userContent: UserContent,
     includeFileDetails: boolean = false
   ): Promise<boolean> {
     if (this.abort) {
-      throw new Error("Cline instance aborted")
+      throw new Error("Codey instance aborted")
     }
 
     if (this.consecutiveMistakeCount >= 3) {
@@ -942,7 +942,7 @@ export class Agent {
         "mistake_limit_reached",
         this.api.getModel().id.includes("claude")
           ? `This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-          : "Cline uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities."
+          : "Codey uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.5 Sonnet for its advanced agentic coding capabilities."
       )
       if (response === "messageResponse") {
         userContent.push(
@@ -959,7 +959,7 @@ export class Agent {
     }
 
     // get previous api req's index to check token usage and determine if we need to truncate conversation history
-    const previousApiReqIndex = findLastIndex(this.clineMessages, (m) => m.say === "api_req_started")
+    const previousApiReqIndex = findLastIndex(this.codeyMessages, (m) => m.say === "api_req_started")
 
     // getting verbose details is an expensive operation, it uses globby to top-down build file structure of project
     // which for large projects can take a few seconds
@@ -981,11 +981,11 @@ export class Agent {
 
     // since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request
     // (to load potential details for example), we need to update the text of that message
-    const lastApiReqIndex = findLastIndex(this.clineMessages, (m) => m.say === "api_req_started")
-    this.clineMessages[lastApiReqIndex].text = JSON.stringify({
+    const lastApiReqIndex = findLastIndex(this.codeyMessages, (m) => m.say === "api_req_started")
+    this.codeyMessages[lastApiReqIndex].text = JSON.stringify({
       request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n"),
     } satisfies APIRequestInfo)
-    await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+    await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
     await this.providerRef.deref()?.postStateToWebview()
 
     try {
@@ -1001,8 +1001,8 @@ export class Agent {
       // so it remains solely for legacy purposes to keep track of prices in tasks from history
       // (it's worth removing a few months from now)
       const updateApiReqMsg = (cancelReason?: APIRequestCancelReason, streamingFailedMessage?: string) => {
-        this.clineMessages[lastApiReqIndex].text = JSON.stringify({
-          ...JSON.parse(this.clineMessages[lastApiReqIndex].text || "{}"),
+        this.codeyMessages[lastApiReqIndex].text = JSON.stringify({
+          ...JSON.parse(this.codeyMessages[lastApiReqIndex].text || "{}"),
           tokensIn: inputTokens,
           tokensOut: outputTokens,
           cacheWrites: cacheWriteTokens,
@@ -1027,13 +1027,13 @@ export class Agent {
         }
 
         // if last message is a partial we need to update and save it
-        const lastMessage = this.clineMessages.at(-1)
+        const lastMessage = this.codeyMessages.at(-1)
         if (lastMessage && lastMessage.partial) {
           // lastMessage.ts = Date.now() DO NOT update ts since it is used as a key for virtuoso list
           lastMessage.partial = false
           // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
           console.log("updating partial message", lastMessage)
-          // await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+          // await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
         }
 
         // Let assistant know their response was interrupted for when task is resumed
@@ -1054,7 +1054,7 @@ export class Agent {
 
         // update api_req_started to have cancelled and cost, so that we can display the cost of the partial stream
         updateApiReqMsg(cancelReason, streamingFailedMessage)
-        await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+        await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
 
         // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
         this.didFinishAborting = true
@@ -1103,7 +1103,7 @@ export class Agent {
             console.log("aborting stream...")
             if (!this.abandoned) {
               // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs,
-              // in which case this would affect future instances of cline)
+              // in which case this would affect future instances of codey)
               await abortStream("user_cancelled")
             }
             break // aborts the stream
@@ -1118,7 +1118,7 @@ export class Agent {
           }
         }
       } catch (error) {
-        // abandoned happens when extension is no longer waiting for the cline instance to finish aborting
+        // abandoned happens when extension is no longer waiting for the codey instance to finish aborting
         // (error is thrown here when any function in the for loop throws due to this.abort)
         if (!this.abandoned) {
           // if the stream failed, there's various states the task could be in
@@ -1130,14 +1130,14 @@ export class Agent {
           )
           const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
           if (history) {
-            await this.providerRef.deref()?.initClineWithHistoryItem(history.historyItem)
+            await this.providerRef.deref()?.initCodeyWithHistoryItem(history.historyItem)
             // await this.providerRef.deref()?.postStateToWebview()
           }
         }
       }
 
       if (this.abort) {
-        throw new Error("Cline instance aborted")
+        throw new Error("Codey instance aborted")
       }
 
       this.didCompleteReadingStream = true
@@ -1159,7 +1159,7 @@ export class Agent {
       }
 
       updateApiReqMsg()
-      await this.saveClineMessages(this.globalStoragePath, this.taskId, this.clineMessages)
+      await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
       await this.providerRef.deref()?.postStateToWebview()
 
       // now add to apiconversationhistory
@@ -1196,7 +1196,7 @@ export class Agent {
           this.consecutiveMistakeCount++
         }
 
-        const recDidEndLoop = await this.recursivelyMakeClineRequests(this.userMessageContent)
+        const recDidEndLoop = await this.recursivelyMakeCodeyRequests(this.userMessageContent)
         didEndLoop = recDidEndLoop
       } else {
         // if there's no assistant_responses, that means we got no text or tool_use content blocks from API which we should assume is an error
@@ -1225,7 +1225,7 @@ export class Agent {
 
   async handleAssistantMessage() {
     if (this.abort) {
-      throw new Error("Cline instance aborted")
+      throw new Error("Codey instance aborted")
     }
 
     if (this.presentAssistantMessageLocked) {

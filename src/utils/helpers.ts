@@ -36,7 +36,7 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
 
 
 export function timeAgoDescription(ref?: number | null): string {
-  // const timestamp = lastClineMessage?.ts ?? Date.now()
+  // const timestamp = lastCodeyMessage?.ts ?? Date.now()
   const timestamp = ref ?? Date.now()
   const now = Date.now()
   const diff = now - timestamp

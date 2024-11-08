@@ -18,7 +18,7 @@
 
 ## [2.0.15]
 
-- Fix bug where modifying Cline's edits would lead him to try to re-apply the edits
+- Fix bug where modifying Codey's edits would lead him to try to re-apply the edits
 - Fix bug where weaker models would display file contents before using the write_to_file tool
 - Fix o1-mini and o1-preview errors when using OpenAI native
 
@@ -44,7 +44,7 @@
 
 ## [2.0.9]
 
-- Update system prompt to try to prevent Cline from lazy coding (`// rest of code here...`)
+- Update system prompt to try to prevent Codey from lazy coding (`// rest of code here...`)
 
 ## [2.0.8]
 
@@ -57,19 +57,19 @@
 
 ## [2.0.6]
 
-- Update URLs to https://github.com/cline/cline
+- Update URLs to https://github.com/ccrvlh/codey
 
 ## [2.0.5]
 
-- Fixed bug where Cline's edits would stream into the active tab when switching tabs during a write_to_file
+- Fixed bug where Codey's edits would stream into the active tab when switching tabs during a write_to_file
 - Added explanation in task continuation prompt that an interrupted write_to_file reverts the file to its original contents, preventing unnecessary re-reads
 - Fixed non-first chunk error handling in case stream fails mid-way through
 
 ## [2.0.0]
 
-- New name! Meet Cline, an AI assistant that can use your CLI and Editor
-- Responses are now streamed with a yellow text decoration animation to keep track of Cline's progress as he edits files
-- New Cancel button to give Cline feedback if he goes off in the wrong direction, giving you more control over tasks
+- New name! Meet Codey, an AI assistant that can use your CLI and Editor
+- Responses are now streamed with a yellow text decoration animation to keep track of Codey's progress as he edits files
+- New Cancel button to give Codey feedback if he goes off in the wrong direction, giving you more control over tasks
 - Re-imagined tool calling prompt resulting in ~40% fewer requests to accomplish tasks + better performance with other models
 - Search and use any model with OpenRouter
 
@@ -184,7 +184,7 @@
 
 ## [1.0.4]
 
-- Open in the editor (using menu bar or `Claude Dev: Open In New Tab` in command palette) to see how Claude updates your workspace more clearly
+- Open in the editor (using menu bar or `Codey: Open In New Tab` in command palette) to see how Claude updates your workspace more clearly
 - New `analyze_project` tool to help Claude get a comprehensive overview of your project's source code definitions and file structure
 - Provide feedback to tool use like terminal commands and file edits
 - Updated max output tokens to 8192 so less lazy coding (`// rest of code here...`)

@@ -122,7 +122,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
               marginTop: "5px",
               color: "var(--vscode-descriptionForeground)",
             }}>
-            When enabled, Cline will automatically read files, view directories, and inspect sites without requiring you
+            When enabled, Codey will automatically read files, view directories, and inspect sites without requiring you
             to click the Approve button.
           </p>
         </div>
@@ -137,8 +137,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
               marginTop: "5px",
               color: "var(--vscode-descriptionForeground)",
             }}>
-            When enabled, Cline will automatically scroll the editor to the line that's currently being edited, so you
-            can follow changed in real time. Toggle this off if you want to manually scroll the editor during Cline's
+            When enabled, Codey will automatically scroll the editor to the line that's currently being edited, so you
+            can follow changed in real time. Toggle this off if you want to manually scroll the editor during Codey's
             edit.
           </p>
         </div>
@@ -158,7 +158,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
               marginTop: "5px",
               color: "var(--vscode-descriptionForeground)",
             }}>
-            The maximum number of lines Cline will read from a file. If a file exceeds this threshold, Cline will read
+            The maximum number of lines Codey will read from a file. If a file exceeds this threshold, Codey will read
             the top level definitions of the file (eg. classes, functions, methods, etc.). Zero means no limit
           </p>
         </div>
@@ -184,7 +184,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
                 marginTop: "5px",
                 color: "var(--vscode-descriptionForeground)",
               }}>
-              How to give Cline context about the project. `Tree` will show the directory tree as in `tree -L 2` and
+              How to give Codey context about the project. `Tree` will show the directory tree as in `tree -L 2` and
               `Files` will show the files in the directory.
             </p>
           </div>
@@ -218,8 +218,8 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
           }}>
           <p style={{ wordWrap: "break-word", margin: 0, padding: 0 }}>
             If you have any questions or feedback, feel free to open an issue at{" "}
-            <VSCodeLink href="https://github.com/cline/cline" style={{ display: "inline" }}>
-              https://github.com/cline/cline
+            <VSCodeLink href="https://github.com/ccrvlh/codey" style={{ display: "inline" }}>
+              https://github.com/ccrvlh/codey
             </VSCodeLink>
           </p>
           <p style={{ fontStyle: "italic", margin: "10px 0 0 0", padding: 0 }}>v{version}</p>

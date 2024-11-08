@@ -1,4 +1,4 @@
-export interface ClineAPI {
+export interface CodeyAPI {
 	/**
 	 * Sets the custom instructions in the global storage.
 	 * @param value The custom instructions to be saved.
