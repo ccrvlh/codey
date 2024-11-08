@@ -9,7 +9,7 @@ import {
 import { memo, useEffect, useState } from "react"
 import { useConfig } from "../../context/ConfigContext"
 import { useExtensionState } from "../../context/ExtensionStateContext"
-import { validateApiConfiguration, validateModelId } from "../../utils/validate"
+import { validateApiConfiguration, validateModelId } from "../../utils/validators"
 import { vscode } from "../../utils/vscode"
 import ApiOptions from "./ApiOptions"
 
