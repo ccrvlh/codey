@@ -1,9 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { ClineAskResponse } from "../shared/interfaces";
+import { UserResponse } from "../shared/interfaces";
 
 
 export type AskUserResponse = {
-  response: ClineAskResponse;
+  response: UserResponse;
   text?: string;
   images?: string[]
 }

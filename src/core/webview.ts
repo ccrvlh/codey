@@ -16,7 +16,7 @@ import { GlobalFileNames } from "../utils/const"
 import { fileExistsAtPath } from "../utils/fs"
 import { findLast, getNonce, getUri } from "../utils/helpers"
 import { ConfigManager } from "./config"
-import { Cline } from "./main"
+import { Assistant } from "./main"
 import { openMention } from "./mentions"
 
 
@@ -24,7 +24,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 	private static activeInstances: Set<ViewProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
 	private view?: vscode.WebviewView | vscode.WebviewPanel
-	private cline?: Cline
+	private cline?: Assistant
 	private configManager: ConfigManager
 	private workspaceTracker?: WorkspaceTracker
 	private latestAnnouncementId = "oct-9-2024" // update to some unique identifier when we add a new announcement
@@ -144,14 +144,14 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 		await this.clearTask()
 		const { apiConfiguration } = await this.getState()
 		const config = await this.configManager.getConfig()
-		this.cline = new Cline(this, apiConfiguration, config, task, images, undefined)
+		this.cline = new Assistant(this, apiConfiguration, config, task, images, undefined)
 	}
 
 	async initClineWithHistoryItem(historyItem: HistoryItem) {
 		await this.clearTask()
 		const { apiConfiguration } = await this.getState()
 		const config = await this.configManager.getConfig()
-		this.cline = new Cline(
+		this.cline = new Assistant(
 			this,
 			apiConfiguration,
 			config,

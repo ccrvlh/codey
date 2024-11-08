@@ -16,16 +16,16 @@ import { fileExistsAtPath } from "../utils/fs"
 import { getReadablePath } from "../utils/path"
 import { ClineConfig } from "./config"
 import { responseTemplates } from "./formatter"
-import { Cline } from "./main"
+import { Assistant } from "./main"
 
 export class ToolExecutor {
   private static readonly MAX_FILE_LINES = 500;
   private diffViewProvider: DiffViewProvider
   private cwd: string
-  private cline: Cline
+  private cline: Assistant
   private config: ClineConfig
 
-  constructor(cline: Cline, config: ClineConfig, cwd: string, diffViewProvider: DiffViewProvider) {
+  constructor(cline: Assistant, config: ClineConfig, cwd: string, diffViewProvider: DiffViewProvider) {
     this.cline = cline
     this.config = config
     this.cwd = cwd

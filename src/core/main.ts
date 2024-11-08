@@ -19,9 +19,9 @@ import {
   ApiConfiguration, ClineApiReqCancelReason,
   ClineApiReqInfo,
   ClineAsk,
-  ClineAskResponse,
   ClineMessage,
-  ClineSay, ExtensionMessageType, HistoryItem
+  ClineSay, ExtensionMessageType, HistoryItem,
+  UserResponse
 } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
 import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, UserContent } from "../types"
@@ -39,7 +39,7 @@ import { ToolExecutor } from "./tools"
 import { ViewProvider } from "./webview"
 
 
-export class Cline {
+export class Assistant {
 
   // Declarations
   api: ApiHandler
@@ -61,7 +61,7 @@ export class Cline {
   // Task state
   readonly taskId: string
   private terminalManager: TerminalManager
-  private userResponse?: ClineAskResponse
+  private userResponse?: UserResponse
   private userResponseText?: string
   private userResponseImages?: string[]
   private lastMessageTs?: number
@@ -163,16 +163,14 @@ export class Cline {
       const dir = await ensureTaskDirectoryExists(storagePath, taskId)
       const filePath = path.join(dir, GlobalFileNames.uiMessages)
       await fs.writeFile(filePath, JSON.stringify(messages))
-      // combined as they are in ChatView
       const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(messages.slice(1))))
       const taskMessage = messages[0] // first message is always the task say
-      const lastRelevantMessage =
-        messages[
+      const lastRelevantMessage = messages[
         findLastIndex(
           messages,
           (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
         )
-        ]
+      ]
       await this.providerRef.deref()?.updateTaskHistory({
         id: taskId,
         ts: lastRelevantMessage.ts,
@@ -280,7 +278,7 @@ export class Cline {
     this.userResponseImages = undefined
   }
 
-  async handleWebviewUserResponse(askResponse: ClineAskResponse, text?: string, images?: string[]) {
+  async handleWebviewUserResponse(askResponse: UserResponse, text?: string, images?: string[]) {
     this.userResponse = askResponse
     this.userResponseText = text
     this.userResponseImages = images

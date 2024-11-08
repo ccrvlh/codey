@@ -145,14 +145,14 @@ export interface WebviewMessage {
   | "directoryContextMaxLines"
   | "maxMistakeLimit"
   text?: string
-  askResponse?: ClineAskResponse
+  askResponse?: UserResponse
   apiConfiguration?: ApiConfiguration
   images?: string[]
   bool?: boolean
   value?: number  // Added for number-based config values
 }
 
-export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
+export type UserResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
 
 export type ApiProvider =
   | "anthropic"
