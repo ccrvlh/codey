@@ -1,9 +1,9 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { GoogleGenerativeAI } from "@google/generative-ai"
-import { ApiHandler } from "../"
+import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertAnthropicMessageToGemini } from "../transform/gemini-format"
-import { ApiStream } from "../transform/stream"
+import { APIStream } from "../transform/stream"
 
 // Gemini
 // https://ai.google.dev/gemini-api/docs/models/gemini
@@ -55,7 +55,7 @@ const MODELS = {
 } as const satisfies Record<string, ModelInfo>
 
 
-export class GeminiHandler implements ApiHandler {
+export class GeminiHandler implements APIHandler {
 	private options: APIHandlerOptions
 	private client: GoogleGenerativeAI
 
@@ -67,7 +67,7 @@ export class GeminiHandler implements ApiHandler {
 		this.client = new GoogleGenerativeAI(options.geminiApiKey)
 	}
 
-	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream {
 		const model = this.client.getGenerativeModel({
 			model: this.getModel().id,
 			systemInstruction: systemPrompt,

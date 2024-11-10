@@ -7,8 +7,8 @@ import pWaitFor from "p-wait-for"
 import * as path from "path"
 import { serializeError } from "serialize-error"
 import * as vscode from "vscode"
-import { ApiHandler, buildApiHandler } from "../api"
-import { ApiStream } from "../api/transform/stream"
+import { APIHandler, buildApiHandler } from "../api"
+import { APIStream } from "../api/transform/stream"
 import { DiffViewProvider } from "../integrations/editor/DiffViewProvider"
 import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
@@ -43,7 +43,7 @@ import { ViewProvider } from "./webview"
 export class Agent {
 
   // Declarations
-  api: ApiHandler
+  api: APIHandler
   urlContentFetcher: UrlContentFetcher
   config: AgentConfig
 
@@ -867,7 +867,7 @@ export class Agent {
     ])
   }
 
-  async * attemptApiRequest(previousApiReqIndex: number): ApiStream {
+  async * attemptApiRequest(previousApiReqIndex: number): APIStream {
     const supportsImages = this.api.getModel().info.supportsImages ?? false
     let systemPrompt = SYSTEM_PROMPT(this.cwd, supportsImages)
     if (this.config.customInstructions && this.config.customInstructions.trim()) {

@@ -1,9 +1,9 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import OpenAI from "openai"
-import { ApiHandler } from "../"
+import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { ApiStream } from "../transform/stream"
+import { APIStream } from "../transform/stream"
 
 // OpenAI Native
 // https://openai.com/api/pricing/
@@ -45,7 +45,7 @@ const MODELS = {
 } as const satisfies Record<string, ModelInfo>
 
 
-export class OpenAiNativeHandler implements ApiHandler {
+export class OpenAiNativeHandler implements APIHandler {
 	private options: APIHandlerOptions
 	private client: OpenAI
 
@@ -56,7 +56,7 @@ export class OpenAiNativeHandler implements ApiHandler {
 		})
 	}
 
-	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream {
 		switch (this.getModel().id) {
 			case "o1-preview":
 			case "o1-mini": {

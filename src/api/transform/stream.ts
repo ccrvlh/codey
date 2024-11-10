@@ -1,12 +1,12 @@
-export type ApiStream = AsyncGenerator<ApiStreamChunk>
-export type ApiStreamChunk = ApiStreamTextChunk | ApiStreamUsageChunk
+export type APIStream = AsyncGenerator<APIStreamChunk>
+export type APIStreamChunk = APIStreamTextChunk | APIStreamUsageChunk
 
-export interface ApiStreamTextChunk {
+export interface APIStreamTextChunk {
 	type: "text"
 	text: string
 }
 
-export interface ApiStreamUsageChunk {
+export interface APIStreamUsageChunk {
 	type: "usage"
 	inputTokens: number
 	outputTokens: number

@@ -8,14 +8,14 @@ import { OpenAiHandler } from "./providers/openai"
 import { OpenAiNativeHandler } from "./providers/openai-native"
 import { OpenRouterHandler } from "./providers/openrouter"
 import { VertexHandler } from "./providers/vertex"
-import { ApiStream } from "./transform/stream"
+import { APIStream } from "./transform/stream"
 
-export interface ApiHandler {
-	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream
+export interface APIHandler {
+	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream
 	getModel(): { id: string; info: ModelInfo }
 }
 
-export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
+export function buildApiHandler(configuration: ApiConfiguration): APIHandler {
 	const { apiProvider, ...options } = configuration
 	switch (apiProvider) {
 		case "anthropic":

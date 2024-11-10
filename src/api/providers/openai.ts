@@ -1,9 +1,9 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import OpenAI, { AzureOpenAI } from "openai"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
-import { ApiHandler } from "../index"
+import { APIHandler } from "../index"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { ApiStream } from "../transform/stream"
+import { APIStream } from "../transform/stream"
 
 
 // Azure OpenAI
@@ -21,7 +21,7 @@ export const openAiModelInfoSaneDefaults: ModelInfo = {
 }
 
 
-export class OpenAiHandler implements ApiHandler {
+export class OpenAiHandler implements APIHandler {
 	private options: APIHandlerOptions
 	private client: OpenAI
 
@@ -42,7 +42,7 @@ export class OpenAiHandler implements ApiHandler {
 		}
 	}
 
-	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream {
 		const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
 			{ role: "system", content: systemPrompt },
 			...convertToOpenAiMessages(messages),

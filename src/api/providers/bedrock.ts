@@ -1,8 +1,8 @@
 import AnthropicBedrock from "@anthropic-ai/bedrock-sdk"
 import { Anthropic } from "@anthropic-ai/sdk"
-import { ApiHandler } from "../"
+import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
-import { ApiStream } from "../transform/stream"
+import { APIStream } from "../transform/stream"
 
 // AWS Bedrock
 // https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html
@@ -48,7 +48,7 @@ const MODELS = {
 
 
 // https://docs.anthropic.com/en/api/claude-on-amazon-bedrock
-export class AwsBedrockHandler implements ApiHandler {
+export class AwsBedrockHandler implements APIHandler {
 	private options: APIHandlerOptions
 	private client: AnthropicBedrock
 
@@ -67,7 +67,7 @@ export class AwsBedrockHandler implements ApiHandler {
 		})
 	}
 
-	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream {
 		const stream = await this.client.messages.create({
 			model: this.getModel().id,
 			max_tokens: this.getModel().info.maxTokens || 8192,

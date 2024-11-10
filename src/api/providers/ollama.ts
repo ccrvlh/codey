@@ -1,9 +1,9 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import OpenAI from "openai"
-import { ApiHandler } from "../"
+import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { ApiStream } from "../transform/stream"
+import { APIStream } from "../transform/stream"
 
 const openAiModelInfoSaneDefaults: ModelInfo = {
 	maxTokens: -1,
@@ -14,7 +14,7 @@ const openAiModelInfoSaneDefaults: ModelInfo = {
 	outputPrice: 0,
 }
 
-export class OllamaHandler implements ApiHandler {
+export class OllamaHandler implements APIHandler {
 	private options: APIHandlerOptions
 	private client: OpenAI
 
@@ -26,7 +26,7 @@ export class OllamaHandler implements ApiHandler {
 		})
 	}
 
-	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream {
 		const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
 			{ role: "system", content: systemPrompt },
 			...convertToOpenAiMessages(messages),

@@ -1,8 +1,8 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { Stream as AnthropicStream } from "@anthropic-ai/sdk/streaming"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
-import { ApiHandler } from "../index"
-import { ApiStream } from "../transform/stream"
+import { APIHandler } from "../index"
+import { APIStream } from "../transform/stream"
 
 
 const DEFAULT_MODEL_ID = "claude-3-5-sonnet-20241022"
@@ -38,11 +38,21 @@ const MODELS = {
 		cacheWritesPrice: 0.3,
 		cacheReadsPrice: 0.03,
 	},
+	"claude-3-5-haiku-20241022": {
+		maxTokens: 8192,
+		contextWindow: 200_000,
+		supportsImages: true,
+		supportsPromptCache: true,
+		inputPrice: 1.0,
+		outputPrice: 5.0,
+		cacheWritesPrice: 0.3,
+		cacheReadsPrice: 0.03,
+	},
 } as const satisfies Record<string, ModelInfo>
 
 type MODEL_ID = keyof typeof MODELS
 
-export class AnthropicHandler implements ApiHandler {
+export class AnthropicHandler implements APIHandler {
 	private options: APIHandlerOptions
 	private client: Anthropic
 
@@ -54,13 +64,14 @@ export class AnthropicHandler implements ApiHandler {
 		})
 	}
 
-	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream {
 		let stream: AnthropicStream<Anthropic.Beta.PromptCaching.Messages.RawPromptCachingBetaMessageStreamEvent>
 		const modelId = this.getModel().id
 		switch (modelId) {
 			// 'latest' alias does not support cache_control
 			case "claude-3-5-sonnet-20241022":
 			case "claude-3-opus-20240229":
+			case "claude-3-5-haiku-20241022":
 			case "claude-3-haiku-20240307": {
 				/*
 				The latest message will be the new user message, one before will be the assistant message from a previous request, and the user message before that will be a previously cached user message. So we need to mark the latest user message as ephemeral to cache it for the next request, and mark the second to last user message as ephemeral to let the server know the last message to retrieve from the cache for the current request..
@@ -111,9 +122,11 @@ export class AnthropicHandler implements ApiHandler {
 						switch (modelId) {
 							case "claude-3-5-sonnet-20241022":
 								return {
-									headers: {
-										"anthropic-beta": "prompt-caching-2024-07-31",
-									},
+									headers: { "anthropic-beta": "prompt-caching-2024-07-31" },
+								}
+							case "claude-3-5-haiku-20241022":
+								return {
+									headers: { "anthropic-beta": "prompt-caching-2024-07-31" },
 								}
 							case "claude-3-haiku-20240307":
 								return {
