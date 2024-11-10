@@ -3,7 +3,7 @@ import { AnthropicVertex } from "@anthropic-ai/vertex-sdk"
 import { APIHandler } from "../"
 
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
-import { APIStream } from "../transform/stream"
+import { APIStream } from "../types"
 
 // Vertex AI
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude

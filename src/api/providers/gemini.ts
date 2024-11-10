@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertAnthropicMessageToGemini } from "../transform/gemini-format"
-import { APIStream } from "../transform/stream"
+import { APIStream } from "../types"
 
 // Gemini
 // https://ai.google.dev/gemini-api/docs/models/gemini

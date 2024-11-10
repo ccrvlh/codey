@@ -8,7 +8,7 @@ import * as path from "path"
 import { serializeError } from "serialize-error"
 import * as vscode from "vscode"
 import { APIHandler, buildApiHandler } from "../api"
-import { APIStream } from "../api/transform/stream"
+import { APIStream } from "../api/types"
 import { DiffViewProvider } from "../integrations/editor/DiffViewProvider"
 import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
@@ -16,7 +16,7 @@ import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
 import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
 import {
-  ApiConfiguration,
+  APIConfiguration,
   APIRequestCancelReason,
   APIRequestInfo,
   CodeyAsk,
@@ -82,7 +82,7 @@ export class Agent {
 
   constructor(
     provider: ViewProvider,
-    apiConfiguration: ApiConfiguration,
+    apiConfiguration: APIConfiguration,
     config: AgentConfig,
     task?: string,
     images?: string[],

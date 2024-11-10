@@ -2,7 +2,7 @@ import AnthropicBedrock from "@anthropic-ai/bedrock-sdk"
 import { Anthropic } from "@anthropic-ai/sdk"
 import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
-import { APIStream } from "../transform/stream"
+import { APIStream } from "../types"
 
 // AWS Bedrock
 // https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html

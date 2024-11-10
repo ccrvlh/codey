@@ -3,7 +3,7 @@ import OpenAI, { AzureOpenAI } from "openai"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { APIHandler } from "../index"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { APIStream } from "../transform/stream"
+import { APIStream } from "../types"
 
 
 // Azure OpenAI

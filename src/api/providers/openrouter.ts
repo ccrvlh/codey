@@ -5,7 +5,7 @@ import OpenAI from "openai"
 import { APIHandler } from "../"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { convertToOpenAiMessages } from "../transform/openai-format"
-import { APIStream } from "../transform/stream"
+import { APIStream } from "../types"
 
 // OpenRouter
 // https://openrouter.ai/models?order=newest&supported_parameters=tools

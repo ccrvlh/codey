@@ -27,7 +27,7 @@ export interface ExtensionMessage {
 
 export interface ExtensionState {
   version: string
-  apiConfiguration?: ApiConfiguration
+  apiConfiguration?: APIConfiguration
   customInstructions?: string
   alwaysAllowReadOnly?: boolean
   editAutoScroll?: boolean
@@ -146,7 +146,7 @@ export interface WebviewMessage {
   | "maxMistakeLimit"
   text?: string
   askResponse?: UserResponse
-  apiConfiguration?: ApiConfiguration
+  apiConfiguration?: APIConfiguration
   images?: string[]
   bool?: boolean
   value?: number  // Added for number-based config values
@@ -188,7 +188,7 @@ export interface APIHandlerOptions {
   azureApiVersion?: string
 }
 
-export type ApiConfiguration = APIHandlerOptions & {
+export type APIConfiguration = APIHandlerOptions & {
   apiProvider?: APIProvider
 }
 

@@ -2,7 +2,7 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import { Stream as AnthropicStream } from "@anthropic-ai/sdk/streaming"
 import { APIHandlerOptions, ModelInfo } from "../../shared/interfaces"
 import { APIHandler } from "../index"
-import { APIStream } from "../transform/stream"
+import { APIStream } from "../types"
 
 
 const DEFAULT_MODEL_ID = "claude-3-5-sonnet-20241022"

@@ -1,5 +1,5 @@
 import { Anthropic } from "@anthropic-ai/sdk"
-import { ApiConfiguration, ModelInfo } from "../shared/interfaces"
+import { APIConfiguration, ModelInfo } from "../shared/interfaces"
 import { AnthropicHandler } from "./providers/anthropic"
 import { AwsBedrockHandler } from "./providers/bedrock"
 import { GeminiHandler } from "./providers/gemini"
@@ -8,14 +8,14 @@ import { OpenAiHandler } from "./providers/openai"
 import { OpenAiNativeHandler } from "./providers/openai-native"
 import { OpenRouterHandler } from "./providers/openrouter"
 import { VertexHandler } from "./providers/vertex"
-import { APIStream } from "./transform/stream"
+import { APIStream } from "./types"
 
 export interface APIHandler {
 	createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): APIStream
 	getModel(): { id: string; info: ModelInfo }
 }
 
-export function buildApiHandler(configuration: ApiConfiguration): APIHandler {
+export function buildApiHandler(configuration: APIConfiguration): APIHandler {
 	const { apiProvider, ...options } = configuration
 	switch (apiProvider) {
 		case "anthropic":
