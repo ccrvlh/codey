@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { useEvent } from "react-use"
 import { openRouterDefaultModelId, openRouterDefaultModelInfo } from "../../../src/shared/api"
 import { findLastIndex } from "../../../src/shared/helpers"
-import { ApiConfiguration, ExtensionMessage, ExtensionState, ModelInfo } from "../../../src/shared/interfaces"
+import { APIConfiguration, ExtensionMessage, ExtensionState, ModelInfo } from "../../../src/shared/interfaces"
 import { convertTextMateToHljs } from "../utils/textMateToHljs"
 import { vscode } from "../utils/vscode"
 
@@ -12,7 +12,7 @@ interface ExtensionStateContextType extends ExtensionState {
   theme: any
   openRouterModels: Record<string, ModelInfo>
   filePaths: string[]
-  setApiConfiguration: (config: ApiConfiguration) => void
+  setApiConfiguration: (config: APIConfiguration) => void
   setCustomInstructions: (value?: string) => void
   setAlwaysAllowReadOnly: (value: boolean) => void
   setEditAutoScroll: (value: boolean) => void

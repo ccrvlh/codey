@@ -1,4 +1,4 @@
-export type ApiProvider =
+export type APIProvider =
   | "anthropic"
   | "openrouter"
   | "bedrock"
@@ -8,7 +8,7 @@ export type ApiProvider =
   | "gemini"
   | "openai-native"
 
-export interface ApiHandlerOptions {
+export interface APIHandlerOptions {
   apiModelId?: string
   apiKey?: string // anthropic
   anthropicBaseUrl?: string
@@ -31,8 +31,8 @@ export interface ApiHandlerOptions {
   azureApiVersion?: string
 }
 
-export type ApiConfiguration = ApiHandlerOptions & {
-  apiProvider?: ApiProvider
+export type APIConfiguration = APIHandlerOptions & {
+  apiProvider?: APIProvider
 }
 
 // Models

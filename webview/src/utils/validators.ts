@@ -1,7 +1,7 @@
 import { openRouterDefaultModelId } from "../../../src/shared/api"
-import { ApiConfiguration, ModelInfo } from "../../../src/shared/interfaces"
+import { APIConfiguration, ModelInfo } from "../../../src/shared/interfaces"
 
-export function validateApiConfiguration(apiConfiguration?: ApiConfiguration): string | undefined {
+export function validateApiConfiguration(apiConfiguration?: APIConfiguration): string | undefined {
 	if (apiConfiguration) {
 		switch (apiConfiguration.apiProvider) {
 			case "anthropic":
@@ -54,7 +54,7 @@ export function validateApiConfiguration(apiConfiguration?: ApiConfiguration): s
 }
 
 export function validateModelId(
-	apiConfiguration?: ApiConfiguration,
+	apiConfiguration?: APIConfiguration,
 	openRouterModels?: Record<string, ModelInfo>
 ): string | undefined {
 	if (apiConfiguration) {
