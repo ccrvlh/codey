@@ -163,6 +163,25 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
           </p>
         </div>
 
+        <div style={{ marginBottom: 5 }}>
+          <VSCodeTextArea
+            value={config.directoryContextMaxLines?.toString() ?? ""}
+            style={{ width: "100%" }}
+            rows={1}
+            placeholder={"1000"}
+            onInput={(e) => config.setDirectoryContextMaxLines(Number((e.target as HTMLSelectElement)?.value ?? 0))}>
+            <span style={{ fontWeight: "500" }}>Project Context Max Lines</span>
+          </VSCodeTextArea>
+          <p
+            style={{
+              fontSize: "12px",
+              marginTop: "5px",
+              color: "var(--vscode-descriptionForeground)",
+            }}>
+            The maximum number of lines Codey will allow for the initial project context.
+          </p>
+        </div>
+
         <div className="dropdown-container">
           <label htmlFor="directory-context">
             <span style={{ fontWeight: 500 }}>Project Context Mode</span>
