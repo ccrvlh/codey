@@ -812,7 +812,7 @@ export class Agent {
         // don't want to immediately access desktop since it would show permission popup
         details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
       } else {
-        const [files, didHitLimit] = await listFiles(this.cwd, true, this.config.maxFileLineThreshold)
+        const [files, didHitLimit] = await listFiles(this.cwd, true, 200)
         const result = responseTemplates.formatFilesList(this.cwd, files, didHitLimit)
         details += result
       }
