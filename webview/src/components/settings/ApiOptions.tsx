@@ -10,7 +10,6 @@ import {
 import { Fragment, memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useEvent, useInterval } from "react-use"
 import {
-  ApiConfiguration,
   ModelInfo,
   anthropicDefaultModelId,
   anthropicModels,
@@ -27,7 +26,7 @@ import {
   vertexDefaultModelId,
   vertexModels,
 } from "../../../../src/shared/api"
-import { ExtensionMessage } from "../../../../src/shared/interfaces"
+import { APIConfiguration, ExtensionMessage } from "../../../../src/shared/interfaces"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
 import VSCodeButtonLink from "../common/VSCodeButtonLink"
@@ -49,7 +48,7 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
   const [azureApiVersionSelected, setAzureApiVersionSelected] = useState(!!apiConfiguration?.azureApiVersion)
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
 
-  const handleInputChange = (field: keyof ApiConfiguration) => (event: any) => {
+  const handleInputChange = (field: keyof APIConfiguration) => (event: any) => {
     setApiConfiguration({ ...apiConfiguration, [field]: event.target.value })
   }
 
@@ -686,7 +685,7 @@ const ModelInfoSupportsItem = ({
   </span>
 )
 
-export function normalizeApiConfiguration(apiConfiguration?: ApiConfiguration) {
+export function normalizeApiConfiguration(apiConfiguration?: APIConfiguration) {
   const provider = apiConfiguration?.apiProvider || "anthropic"
   const modelId = apiConfiguration?.apiModelId
 
