@@ -436,6 +436,7 @@ export class ToolExecutor {
         this.codey.pushToolResult(block, await this.handleMissingParamError("search_files", "regex"))
         return
       }
+
       this.codey.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relDirPath)
       const results = await regexSearchFiles(this.cwd, absolutePath, regex, filePattern)
@@ -443,6 +444,7 @@ export class ToolExecutor {
         ...sharedMessageProps,
         content: results,
       } satisfies CodeySayTool)
+
       if (this.config.alwaysAllowReadOnly) {
         await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
