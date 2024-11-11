@@ -410,15 +410,26 @@ const HistoryView = ({ onDone }: HistoryViewProps) => {
 }
 
 const ExportButton = ({ itemId }: { itemId: string }) => (
-  <VSCodeButton
-    className="export-button"
-    appearance="icon"
-    onClick={(e) => {
-      e.stopPropagation()
-      vscode.postMessage({ type: "exportTaskWithId", text: itemId })
-    }}>
-    <div style={{ fontSize: "11px", fontWeight: 500, opacity: 1 }}>EXPORT</div>
-  </VSCodeButton>
+  <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+    <VSCodeButton
+      className="export-button"
+      appearance="icon"
+      onClick={(e) => {
+        e.stopPropagation()
+        vscode.postMessage({ type: "exportTaskWithId", text: itemId })
+      }}>
+      <div style={{ fontSize: "11px", fontWeight: 500, opacity: 1 }}>EXPORT</div>
+    </VSCodeButton>
+    <VSCodeButton
+      className="export-button"
+      appearance="icon"
+      onClick={(e) => {
+        e.stopPropagation()
+        vscode.postMessage({ type: "exportDebugTaskWithId", text: itemId })
+      }}>
+      <div style={{ fontSize: "11px", fontWeight: 500, opacity: 1 }}>DEBUG</div>
+    </VSCodeButton>
+  </div>
 )
 
 // https://gist.github.com/evenfrost/1ba123656ded32fb7a0cd4651efd4db0

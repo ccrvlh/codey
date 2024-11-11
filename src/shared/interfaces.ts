@@ -133,6 +133,7 @@ export interface WebviewMessage {
   | "showTaskWithId"
   | "deleteTaskWithId"
   | "exportTaskWithId"
+  | "exportDebugTaskWithId"
   | "resetState"
   | "requestOllamaModels"
   | "openImage"

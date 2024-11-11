@@ -395,6 +395,9 @@ export class ViewProvider implements vscode.WebviewViewProvider {
           case "exportTaskWithId":
             this.exportTaskWithId(message.text!)
             break
+          case "exportDebugTaskWithId":
+            this.exportTaskDebug(message.text!)
+            break
           case "resetState":
             await this.resetState()
             break

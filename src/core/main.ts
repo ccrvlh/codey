@@ -1316,8 +1316,10 @@ export class Agent {
       // (prevents scrollview from jumping when tags are automatically removed)
       const lastOpenBracketIndex = content.lastIndexOf("<")
       if (lastOpenBracketIndex !== -1) {
+
+        // Check if there's a '>' after the last '<' (i.e., if the tag is complete)
+        // complete thinking and tool tags will have been removed by now
         const possibleTag = content.slice(lastOpenBracketIndex)
-        // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
         const hasCloseBracket = possibleTag.includes(">")
         if (!hasCloseBracket) {
           // Extract the potential tag name
@@ -1327,11 +1329,12 @@ export class Agent {
           } else {
             tagContent = possibleTag.slice(1).trim()
           }
+
           // Check if tagContent is likely an incomplete tag name (letters and underscores only)
-          const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
           // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
-          const isOpeningOrClosing = possibleTag === "<" || possibleTag === "</"
           // If the tag is incomplete and at the end, remove it from the content
+          const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+          const isOpeningOrClosing = possibleTag === "<" || possibleTag === "</"
           if (isOpeningOrClosing || isLikelyTagName) {
             content = content.slice(0, lastOpenBracketIndex).trim()
           }
