@@ -147,3 +147,68 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 	}
 	return undefined
 }
+
+
+/**
+ * Extracts the full definition of a specific method, function, or class from a file
+ * @param filePath Path to the source code file
+ * @param definitionName Name of the definition to extract
+ * @returns The full definition as a string, or undefined if not found
+ */
+export async function extractDefinition(
+	filePath: string,
+	definitionName: string
+): Promise<string | undefined> {
+	const fileContent = await fs.readFile(filePath, "utf8")
+	const ext = path.extname(filePath).toLowerCase().slice(1)
+
+	const languageParsers = await loadRequiredLanguageParsers([filePath])
+	const { parser, query } = languageParsers[ext] || {}
+
+	if (!parser || !query) {
+		return undefined
+	}
+
+	try {
+		const tree = parser.parse(fileContent)
+		const captures = query.captures(tree.rootNode)
+		const lines = fileContent.split("\n")
+
+		// Group captures by their position to associate names with their definitions
+		const definitionGroups = new Map<number, { name: string; node: any }>()
+
+		captures.forEach((capture) => {
+			const { node, name: captureName } = capture
+			const startLine = node.startPosition.row
+
+			// If this is a name capture, store it
+			if (captureName.includes("name")) {
+				const nodeName = lines[startLine].trim()
+				if (nodeName.includes(definitionName)) {
+					definitionGroups.set(startLine, { name: nodeName, node: null })
+				}
+			}
+			// If this is a definition capture, associate it with the name
+			else if (captureName.startsWith("definition.")) {
+				const group = definitionGroups.get(startLine)
+				if (group) {
+					group.node = node
+				}
+			}
+		})
+
+		// Find the matching definition
+		for (const group of definitionGroups.values()) {
+			if (group.node) {
+				const startLine = group.node.startPosition.row
+				const endLine = group.node.endPosition.row
+				const definition = lines.slice(startLine, endLine + 1).join("\n")
+				return definition
+			}
+		}
+	} catch (error) {
+		console.error(`Error extracting definition: ${error}`)
+	}
+
+	return undefined
+}
