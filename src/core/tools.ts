@@ -246,6 +246,7 @@ export class ToolExecutor {
     }
     try {
       if (block.partial) {
+        console.debug("Partial block on read file tool")
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: undefined,
@@ -712,15 +713,14 @@ export class ToolExecutor {
   async searchReplaceTool(block: ToolUse) {
     const contentParam: string | undefined = block.params.content
     console.debug("contentParam:", contentParam);
-    if (block.partial) {
-      console.debug("Block is partial, returning early.");
-      return
+    const relPath: string | undefined = block.params.path
+    const sharedMessageProps: CodeySayTool = {
+      tool: "searchReplace",
+      path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
     }
 
     if (!contentParam) {
-      console.debug("Content parameter is missing.");
-      this.codey.consecutiveMistakeCount++;
-      this.codey.pushToolResult(block, await this.handleMissingParamError("search_replace", "content"));
+      console.debug("Content parameter is missing. Waiting for the full content to come in.");
       return;
     }
 
@@ -728,6 +728,17 @@ export class ToolExecutor {
     console.debug("Cleaned up content:", content);
 
     try {
+      if (block.partial) {
+        const partialMessage = JSON.stringify({
+          ...sharedMessageProps,
+          content: undefined,
+        } satisfies CodeySayTool)
+        await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {
+          console.debug("Partial message ask failed.");
+        });
+        return
+      }
+
       const lines = content.split('\n');
       console.debug("Content lines:", lines);
 
