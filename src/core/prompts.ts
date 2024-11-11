@@ -201,9 +201,16 @@ const READ_FILE_TOOL = (cwd: string) => dedent`
   Description: Request to read the contents of a file at the specified path. Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string.
   Parameters:
   - path: (required) The path of the file to read (relative to the current working directory ${cwd.toPosix()})
+  - lines: (optional) The line number to start/end reading from (inclusive). Use this to be more specific about the content you want to read. Format: 'start:end' (e.g., '10:20' to read lines 10 to 20).
   Usage:
   <read_file>
   <path>File path here</path>
+  </read_file>
+
+  With lines:
+  <read_file>
+  <path>File path here</path>
+  <lines>10:50</lines>
   </read_file>
 `
 

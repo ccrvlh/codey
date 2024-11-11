@@ -39,6 +39,7 @@ export const toolUseNames = [
 export const toolParamNames = [
   "command",
   "path",
+  "lines",
   "content",
   "regex",
   "file_pattern",

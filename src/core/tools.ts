@@ -257,17 +257,20 @@ export class ToolExecutor {
         }
         return
       }
+
       if (!relPath) {
         this.codey.consecutiveMistakeCount++
         this.codey.pushToolResult(block, await this.handleMissingParamError("read_file", "path"))
         return
       }
+
       this.codey.consecutiveMistakeCount = 0
       const absolutePath = path.resolve(this.cwd, relPath)
       const completeMessage = JSON.stringify({
         ...sharedMessageProps,
         content: absolutePath,
       } satisfies CodeySayTool)
+
       if (this.config.alwaysAllowReadOnly) {
         // need to be sending partialValue bool
         // since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
@@ -279,19 +282,28 @@ export class ToolExecutor {
           return
         }
       }
-      // Read file and check line count
+
       const content = await extractTextFromFile(absolutePath)
       const lineCount = content.split('\n').length
+      const hasLinesParams = block.params.lines !== undefined
 
-      if (lineCount > this.config.maxFileLineThreshold) {
+      if (!hasLinesParams && lineCount > this.config.maxFileLineThreshold) {
         console.debug(`File ${absolutePath} is too large (${lineCount} lines). Showing code definitions instead.`)
         const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
         this.codey.pushToolResult(block, `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`)
         return
       }
 
-      this.codey.pushToolResult(block, content)
-      return
+      if (!hasLinesParams) {
+        this.codey.pushToolResult(block, content)
+        return
+      }
+
+      const lineRange = block.params.lines?.split(":")
+      const startLine = parseInt(lineRange?.[0] ?? "1", 10)
+      const endLine = parseInt(lineRange?.[1] ?? "1", 10)
+      const specificContent = content.split('\n').slice(startLine - 1, endLine).join('\n')
+      this.codey.pushToolResult(block, specificContent)
 
     } catch (error) {
       await this.handleError(block, "reading file", error)
