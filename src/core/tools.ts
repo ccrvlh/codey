@@ -789,7 +789,10 @@ export class ToolExecutor {
       console.debug("Search content index:", searchIndex);
 
       if (searchIndex === -1) {
-        await this.handleError(block, "couldn't find search content", new Error("search content not found in file"));
+        const err = new Error("search content not found in file. make sure you're using the right search content, and the right file path.");
+        await this.handleError(block, "couldn't find search content", err);
+        await this.diffViewProvider.reset();
+        return;
       }
 
       // Create positions and range for the search content
@@ -881,6 +884,7 @@ export class ToolExecutor {
       console.error("Error during search and replace:", error);
       await this.handleError(block, "performing search and replace", error);
       await this.diffViewProvider.reset();
+      return
     }
   }
 
