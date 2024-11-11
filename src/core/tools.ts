@@ -20,7 +20,6 @@ import { Agent } from "./main"
 
 
 export class ToolExecutor {
-  private static readonly MAX_FILE_LINES = 500;
   private diffViewProvider: DiffViewProvider
   private cwd: string
   private codey: Agent
@@ -284,12 +283,10 @@ export class ToolExecutor {
       const content = await extractTextFromFile(absolutePath)
       const lineCount = content.split('\n').length
 
-      if (lineCount > ToolExecutor.MAX_FILE_LINES) {
+      if (lineCount > this.config.maxFileLineThreshold) {
         console.debug(`File ${absolutePath} is too large (${lineCount} lines). Showing code definitions instead.`)
         const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
-        this.codey.pushToolResult(block,
-          `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`
-        )
+        this.codey.pushToolResult(block, `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`)
         return
       }
 
