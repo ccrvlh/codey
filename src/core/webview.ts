@@ -381,6 +381,11 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 							this.exportTaskWithId(currentTaskId)
 						}
 						break
+					case "exportTaskDebug":
+						if (this.agent?.taskId) {
+							this.exportTaskWithId(this.agent?.taskId)
+						}
+						break
 					case "showTaskWithId":
 						this.showTaskWithId(message.text!)
 						break
@@ -633,7 +638,12 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 
 	async exportTaskWithId(id: string) {
 		const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-		await downloadTask(historyItem.ts, apiConversationHistory)
+		await downloadTask(historyItem, apiConversationHistory)
+	}
+
+	async exportTaskDebug(id: string) {
+		const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
+		await downloadTask(historyItem, apiConversationHistory)
 	}
 
 	async deleteTaskWithId(id: string) {

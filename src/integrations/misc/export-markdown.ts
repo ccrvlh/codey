@@ -2,10 +2,17 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import os from "os"
 import * as path from "path"
 import * as vscode from "vscode"
+import { HistoryItem } from "../../shared/interfaces"
 
-export async function downloadTask(dateTs: number, conversationHistory: Anthropic.MessageParam[]) {
+/**
+ * Downloads a markdown file containing the conversation history of a task.
+ *
+ * @param history The task history item.
+ * @param conversationHistory The conversation history of the task.
+ */
+export async function downloadTask(history: HistoryItem, conversationHistory: Anthropic.MessageParam[]) {
 	// File name
-	const date = new Date(dateTs)
+	const date = new Date(history.ts)
 	const month = date.toLocaleString("en-US", { month: "short" }).toLowerCase()
 	const day = date.getDate()
 	const year = date.getFullYear()
@@ -15,7 +22,7 @@ export async function downloadTask(dateTs: number, conversationHistory: Anthropi
 	const ampm = hours >= 12 ? "pm" : "am"
 	hours = hours % 12
 	hours = hours ? hours : 12 // the hour '0' should be '12'
-	const fileName = `codey_task_${month}-${day}-${year}_${hours}-${minutes}-${seconds}-${ampm}.md`
+	const fileName = `${year}${month}${day}${hours}${minutes}${seconds}${ampm} Codey Task #${history.id}.md`
 
 	// Generate markdown
 	const markdownContent = conversationHistory
@@ -41,6 +48,11 @@ export async function downloadTask(dateTs: number, conversationHistory: Anthropi
 	}
 }
 
+/**
+ * Converts a content block to a markdown string.
+ *
+ * @param block The content block to convert.
+ */
 export function formatContentBlockToMarkdown(
 	block:
 		| Anthropic.TextBlockParam
@@ -82,6 +94,12 @@ export function formatContentBlockToMarkdown(
 	}
 }
 
+/**
+ * Finds the name of a tool given its ID.
+ *
+ * @param toolCallId The ID of the tool.
+ * @param messages The conversation messages.
+ */
 export function findToolName(toolCallId: string, messages: Anthropic.MessageParam[]): string {
 	for (const message of messages) {
 		if (Array.isArray(message.content)) {
