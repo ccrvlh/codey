@@ -360,17 +360,14 @@ export const highlightMentions = (text?: string, withShadow = true) => {
 }
 
 const ExportButton = () => (
-  <VSCodeButton
-    appearance="icon"
-    onClick={() => vscode.postMessage({ type: "exportCurrentTask" })}
-    style={
-      {
-        // marginBottom: "-2px",
-        // marginRight: "-2.5px",
-      }
-    }>
-    <div style={{ fontSize: "10.5px", fontWeight: "bold", opacity: 0.6 }}>EXPORT</div>
-  </VSCodeButton>
+  <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+    <VSCodeButton appearance="icon" onClick={() => vscode.postMessage({ type: "exportCurrentTask" })}>
+      <div style={{ fontSize: "10.5px", fontWeight: "bold", opacity: 0.6 }}>EXPORT</div>
+    </VSCodeButton>
+    <VSCodeButton appearance="icon" onClick={() => vscode.postMessage({ type: "exportTaskDebug" })}>
+      <div style={{ fontSize: "10.5px", fontWeight: "bold", opacity: 0.6 }}>DEBUG</div>
+    </VSCodeButton>
+  </div>
 )
 
 export default memo(TaskHeader)

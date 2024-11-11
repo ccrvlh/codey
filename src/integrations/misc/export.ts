@@ -4,6 +4,19 @@ import * as path from "path"
 import * as vscode from "vscode"
 import { HistoryItem } from "../../shared/interfaces"
 
+
+function generateFileName(history: HistoryItem, debug: boolean = false) {
+	const date = new Date(history.ts)
+	const month = (date.getMonth() + 1).toString().padStart(2, "0")
+	const day = date.getDate()
+	const year = date.getFullYear()
+	let hours = date.getHours()
+	const minutes = date.getMinutes().toString().padStart(2, "0")
+	const seconds = date.getSeconds().toString().padStart(2, "0")
+	const hoursStr = hours.toString().padStart(2, "0")
+	return `${year}${month}${day}${hoursStr}${minutes}${seconds} Codey Task ${debug ? 'Debug' : ''} #${history.id}.json`
+}
+
 /**
  * Downloads a markdown file containing the conversation history of a task.
  *
@@ -11,20 +24,7 @@ import { HistoryItem } from "../../shared/interfaces"
  * @param conversationHistory The conversation history of the task.
  */
 export async function downloadTask(history: HistoryItem, conversationHistory: Anthropic.MessageParam[]) {
-	// File name
-	const date = new Date(history.ts)
-	const month = date.toLocaleString("en-US", { month: "short" }).toLowerCase()
-	const day = date.getDate()
-	const year = date.getFullYear()
-	let hours = date.getHours()
-	const minutes = date.getMinutes().toString().padStart(2, "0")
-	const seconds = date.getSeconds().toString().padStart(2, "0")
-	const ampm = hours >= 12 ? "pm" : "am"
-	hours = hours % 12
-	hours = hours ? hours : 12 // the hour '0' should be '12'
-	const fileName = `${year}${month}${day}${hours}${minutes}${seconds}${ampm} Codey Task #${history.id}.md`
-
-	// Generate markdown
+	const fileName = generateFileName(history, false)
 	const markdownContent = conversationHistory
 		.map((message) => {
 			const role = message.role === "user" ? "**User:**" : "**Assistant:**"
@@ -35,7 +35,7 @@ export async function downloadTask(history: HistoryItem, conversationHistory: An
 		})
 		.join("---\n\n")
 
-	// Prompt user for save location
+
 	const saveUri = await vscode.window.showSaveDialog({
 		filters: { Markdown: ["md"] },
 		defaultUri: vscode.Uri.file(path.join(os.homedir(), "Downloads", fileName)),
@@ -43,10 +43,30 @@ export async function downloadTask(history: HistoryItem, conversationHistory: An
 
 	if (saveUri) {
 		// Write content to the selected location
-		await vscode.workspace.fs.writeFile(saveUri, Buffer.from(markdownContent))
+		await vscode.workspace.fs.writeFile(saveUri, new Uint8Array(Buffer.from(markdownContent)))
 		vscode.window.showTextDocument(saveUri, { preview: true })
 	}
 }
+
+/**
+ * Downloads a JSON file containing the conversation history of a task for debugging purposes.
+ *
+ * @param history The task history item.
+ * @param conversationHistory The conversation history of the task.
+ */
+export async function downloadTaskDebug(history: HistoryItem, conversationHistory: Anthropic.MessageParam[]) {
+	const fileName = generateFileName(history, true)
+	const jsonContent = JSON.stringify(conversationHistory, null, 2)
+	const saveUri = await vscode.window.showSaveDialog({
+		filters: { JSON: ["json"] },
+		defaultUri: vscode.Uri.file(path.join(os.homedir(), "Downloads", fileName)),
+	})
+	if (saveUri) {
+		await vscode.workspace.fs.writeFile(saveUri, new Uint8Array(Buffer.from(jsonContent)))
+		vscode.window.showTextDocument(saveUri, { preview: true })
+	}
+}
+
 
 /**
  * Converts a content block to a markdown string.
