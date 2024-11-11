@@ -35,7 +35,6 @@ export async function parseSourceCodeForDefinitionsTopLevel(inputPath: string): 
 			result += `${path.relative(path.dirname(inputPath), file).toPosix()}\n${definitions}\n`
 		}
 	}
-
 	return result ? result : "No source code definitions found."
 }
 
@@ -126,16 +125,16 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 				formattedOutput += "\n"
 			}
 			// Only add the first line of the definition
-			// query captures includes the definition name and the definition implementation, but we only want the name (I found discrepencies in the naming structure for various languages, i.e. javascript names would be 'name' and typescript names would be 'name.definition)
+			// query captures includes the definition name and the definition implementation, but we only want the name
+			// (I found discrepencies in the naming structure for various languages, i.e. javascript names would be 'name' and typescript names would be 'name.definition)
 			if (name.includes("name") && lines[startLine]) {
-				formattedOutput += `│${lines[startLine]}`
+				formattedOutput += `│${startLine + 1}: ${lines[startLine]}\n`
 			}
 			// Adds all the captured lines
 			// for (let i = startLine; i <= endLine; i++) {
 			// 	formattedOutput += `│${lines[i]}\n`
 			// }
 			//}
-
 			lastLine = endLine
 		})
 	} catch (error) {
@@ -143,7 +142,7 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 	}
 
 	if (formattedOutput.length > 0) {
-		return `|----\n${formattedOutput}|----\n`
+		return `|----\n${formattedOutput}\n|----\n`
 	}
 	return undefined
 }
