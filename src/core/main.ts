@@ -23,7 +23,7 @@ import {
 } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
 import { APIRequestCancelReason, CodeyAsk, CodeySay, ExtensionMessageType, UserResponse } from "../shared/types"
-import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, toolUseNames, UserContent } from "../types"
+import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHistory } from "../utils/fs"
 import { findLastIndex, timeAgoDescription } from "../utils/helpers"
@@ -1393,43 +1393,33 @@ export class Agent {
     if (this.didRejectTool) {
       return
     }
-
     let content = block.content
-    if (!content) {
-      return await this.sendMessage("text", content, undefined, block.partial)
-    }
+    if (content) {
+      content = content.replace(/<thinking>\s?/g, "")
+      content = content.replace(/\s?<\/thinking>/g, "")
 
-    content = content.replace(/<thinking>\s?/g, "")
-    content = content.replace(/\s?<\/thinking>/g, "")
+      const lastOpenBracketIndex = content.lastIndexOf("<")
+      if (lastOpenBracketIndex !== -1) {
 
-    const potentialToolCall = toolUseNames.some(tool => content.includes(`<${tool}>`) || content.includes(`</${tool}>`))
-    if (potentialToolCall) {
-      console.warn(`[WARN] ⚠️ Warning: Detected text that looks like a tool call but wasn't properly parsed. This may indicate a formatting issue:\n\n${content}`)
-    }
+        const possibleTag = content.slice(lastOpenBracketIndex)
+        const hasCloseBracket = possibleTag.includes(">")
+        if (!hasCloseBracket) {
+          let tagContent: string
+          if (possibleTag.startsWith("</")) {
+            tagContent = possibleTag.slice(2).trim()
+          } else {
+            tagContent = possibleTag.slice(1).trim()
+          }
 
-    const lastOpenBracketIndex = content.lastIndexOf("<")
-    if (lastOpenBracketIndex == -1) {
-      return
+          const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+          const isOpeningOrClosing = possibleTag === "<" || possibleTag === "</"
+          if (isOpeningOrClosing || isLikelyTagName) {
+            content = content.slice(0, lastOpenBracketIndex).trim()
+          }
+        }
+      }
     }
-
-    const possibleTag = content.slice(lastOpenBracketIndex)
-    const hasCloseBracket = possibleTag.includes(">")
-    if (hasCloseBracket) {
-      return
-    }
-
-    let tagContent: string
-    if (possibleTag.startsWith("</")) {
-      tagContent = possibleTag.slice(2).trim()
-    } else {
-      tagContent = possibleTag.slice(1).trim()
-    }
-
-    const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
-    const isOpeningOrClosing = possibleTag === "<" || possibleTag === "</"
-    if (isOpeningOrClosing || isLikelyTagName) {
-      content = content.slice(0, lastOpenBracketIndex).trim()
-    }
+    return await this.sendMessage("text", content, undefined, block.partial)
   }
 
   /**
