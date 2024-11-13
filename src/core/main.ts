@@ -881,9 +881,7 @@ export class Agent {
     if (previousApiReqIndex >= 0) {
       const previousRequest = this.codeyMessages[previousApiReqIndex]
       if (previousRequest && previousRequest.text) {
-        const { tokensIn, tokensOut, cacheWrites, cacheReads }: APIRequestInfo = JSON.parse(
-          previousRequest.text
-        )
+        const { tokensIn, tokensOut, cacheWrites, cacheReads }: APIRequestInfo = JSON.parse(previousRequest.text)
         const totalTokens = (tokensIn || 0) + (tokensOut || 0) + (cacheWrites || 0) + (cacheReads || 0)
         const contextWindow = this.api.getModel().info.contextWindow || 128_000
         const maxAllowedSize = Math.max(contextWindow - 40_000, contextWindow * 0.8)
@@ -974,7 +972,6 @@ export class Agent {
 
     const [parsedUserContent, environmentDetails] = await this.loadContext(userContent, includeFileDetails)
     userContent = parsedUserContent
-    // add environment details as its own text block, separate from tool results
     userContent.push({ type: "text", text: environmentDetails })
 
     await this.addToApiConversationHistory({ role: "user", content: userContent })
@@ -1223,6 +1220,7 @@ export class Agent {
       this.presentAssistantMessageHasPendingUpdates = true
       return
     }
+
     this.presentAssistantMessageLocked = true
     this.presentAssistantMessageHasPendingUpdates = false
 
