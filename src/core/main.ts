@@ -1032,24 +1032,18 @@ export class Agent {
           // lastMessage.ts = Date.now() DO NOT update ts since it is used as a key for virtuoso list
           lastMessage.partial = false
           // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
-          console.log("updating partial message", lastMessage)
+          console.debug("[DEBUG] Updating partial message", lastMessage)
           // await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
         }
 
         // Let assistant know their response was interrupted for when task is resumed
+        const cancelMessage = cancelReason === "streaming_failed" ? "[Response interrupted by API Error]" : "[Response interrupted by user]"
         await this.addToApiConversationHistory({
           role: "assistant",
-          content: [
-            {
-              type: "text",
-              text:
-                assistantMessage +
-                `\n\n[${cancelReason === "streaming_failed"
-                  ? "Response interrupted by API Error"
-                  : "Response interrupted by user"
-                }]`,
-            },
-          ],
+          content: [{
+            type: "text",
+            text: assistantMessage + `\n\n` + cancelMessage
+          }],
         })
 
         // update api_req_started to have cancelled and cost, so that we can display the cost of the partial stream
