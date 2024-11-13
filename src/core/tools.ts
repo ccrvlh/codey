@@ -240,9 +240,10 @@ export class ToolExecutor {
 
   async readFileTool(block: ToolUse) {
     const relPath: string | undefined = block.params.path
+    const cleanPath = this.removeClosingTag(block, "path", relPath)
     const sharedMessageProps: CodeySayTool = {
       tool: "readFile",
-      path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
+      path: getReadablePath(this.cwd, cleanPath),
     }
     try {
       if (block.partial) {
@@ -254,7 +255,9 @@ export class ToolExecutor {
         if (this.config.alwaysAllowReadOnly) {
           await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch((e) => {
+            console.error("[ERROR] Partial message ask failed: ", e.message)
+          })
         }
         return
       }
@@ -276,10 +279,13 @@ export class ToolExecutor {
         // need to be sending partialValue bool
         // since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial
         // but as a single complete message
+        console.debug("[DEBUG] Sending read file tool message")
         await this.codey.sendMessage("tool", completeMessage, undefined, false)
       } else {
+        console.debug("[DEBUG] Asking for user's permission to read the file")
         const didApprove = await this.askApproval(block, "tool", completeMessage)
         if (!didApprove) {
+          console.warn("[WARN] User did not approve file read. Skipping.")
           return
         }
       }
@@ -289,9 +295,16 @@ export class ToolExecutor {
       const hasLinesParams = block.params.lines !== undefined
 
       if (!hasLinesParams && lineCount > this.config.maxFileLineThreshold) {
-        console.debug(`File ${absolutePath} is too large (${lineCount} lines). Showing code definitions instead.`)
-        const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath)
-        this.codey.pushToolResult(block, `File is too large (${lineCount} lines). Showing code definitions instead:\n\n${result}`)
+        console.warn(`[WARN] File ${absolutePath} LOC above threshold (${lineCount}), showing definitions...`)
+        const result = await parseSourceCodeForDefinitionsTopLevel(absolutePath).catch((e) => {
+          console.error(`[ERROR] Failed to parse definitions for ${absolutePath}: ${e.message}`)
+          return "Failed to parse definitions for this file."
+        })
+        this.codey.pushToolResult(block, `
+          File is too large (${lineCount} lines). Showing code definitions instead.
+          If you need to read specific parts of the file, ask again with the "lines" range param.
+          Definitions:\n\n${result}`
+        )
         return
       }
 
