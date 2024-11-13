@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import dedent from 'dedent';
 import { AgentMessageParser } from '../src/core/parser';
 
 suite('AgentMessageParser Tests', () => {
@@ -23,6 +24,26 @@ suite('AgentMessageParser Tests', () => {
       type: 'text',
       content: 'First block\nSecond block',
       partial: true
+    });
+  });
+
+  test('should parse tool after thinking', () => {
+    const message = `<thinking>\ntest\n</thinking>\n\n<read_file>\n<path>test.txt</path>\n</read_file>`;
+    const result = AgentMessageParser.parse(message);
+
+    assert.strictEqual(result.length, 2);
+    assert.deepStrictEqual(result[0], {
+      type: 'text',
+      content: '<thinking>\ntest\n</thinking>',
+      partial: false
+    })
+    assert.deepStrictEqual(result[1], {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: 'test.txt'
+      },
+      partial: false
     });
   });
 
@@ -86,6 +107,119 @@ suite('AgentMessageParser Tests', () => {
         content: 'function test() {\n  console.log("test");\n}'
       },
       partial: false
+    });
+  });
+
+  test('should handle mixed content with text and tool use', () => {
+    const message = dedent`Some text before\
+    <read_file>\
+    <path>test.txt </path>\
+      </read_file>\
+      Some text after
+      `;
+    const result = AgentMessageParser.parse(message);
+
+    assert.strictEqual(result.length, 3);
+    assert.deepStrictEqual(result[0], {
+      type: 'text',
+      content: 'Some text before',
+      partial: false
+
+    });
+    assert.deepStrictEqual(result[1], {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: 'test.txt'
+
+      },
+      partial: false
+    });
+    assert.deepStrictEqual(result[2], {
+      type: 'text',
+      content: 'Some text after',
+      partial: true
+
+    });
+  });
+
+  test('should handle multiple sequential tool uses', () => {
+    const message = dedent`<read_file>\
+      <path>first.txt</path>\
+      </read_file>\
+      <read_file>\
+      <path>second.txt</path>\
+      </read_file>
+    `;
+    const result = AgentMessageParser.parse(message);
+
+    assert.strictEqual(result.length, 4);
+    assert.deepStrictEqual(result[0], {
+      type: 'text',
+      content: '',
+      partial: false
+
+    });
+    assert.deepStrictEqual(result[1], {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: 'first.txt'
+
+      },
+      partial: false
+    });
+    assert.deepStrictEqual(result[2], {
+      type: 'text',
+      content: '',
+      partial: false
+
+    });
+    assert.deepStrictEqual(result[3], {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: 'second.txt'
+
+      },
+      partial: false
+    });
+  });
+
+  test('should handle empty and whitespace content', () => {
+    const message = '   \\t  ';
+    const result = AgentMessageParser.parse(message);
+
+    assert.strictEqual(result.length, 1);
+    assert.deepStrictEqual(result[0], {
+      type: 'text',
+      content: '\\t',
+      partial: true
+
+    });
+  });
+
+  test('should handle partial tool use content', () => {
+    const message = dedent`Text before<read_file>\
+    <path>test.txt
+      `;
+    const result = AgentMessageParser.parse(message);
+
+    assert.strictEqual(result.length, 2);
+    assert.deepStrictEqual(result[0], {
+      type: 'text',
+      content: 'Text before',
+      partial: false
+
+    });
+    assert.deepStrictEqual(result[1], {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: 'test.txt'
+
+      },
+      partial: true
     });
   });
 });
