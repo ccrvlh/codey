@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { extractDefinition, parseSourceCodeForDefinitionsTopLevel } from '../services/tree-sitter/index';
+import { extractDefinition, parseSourceCodeForDefinitionsTopLevel } from '../../src/services/tree-sitter/index';
 
 suite('Tree-sitter Service Test Suite', () => {
   test('parseSourceCodeForDefinitionsTopLevel - invalid path', async () => {

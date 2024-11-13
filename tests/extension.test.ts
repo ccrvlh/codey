@@ -12,4 +12,11 @@ suite('Extension Test Suite', () => {
 		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
 		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
 	});
+
+	suiteTeardown(async () => {
+		// Ensure we clean up any resources
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		// Give some time for cleanup
+		await new Promise(resolve => setTimeout(resolve, 100));
+	});
 });

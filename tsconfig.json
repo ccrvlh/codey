@@ -4,7 +4,11 @@
 		"experimentalDecorators": true,
 		"forceConsistentCasingInFileNames": true,
 		"isolatedModules": true,
-		"lib": ["es2022", "esnext.disposable", "DOM"],
+		"lib": [
+			"es2022",
+			"esnext.disposable",
+			"DOM"
+		],
 		"module": "esnext",
 		"moduleResolution": "Bundler",
 		"noFallthroughCasesInSwitch": true,
@@ -20,6 +24,14 @@
 		"useDefineForClassFields": true,
 		"useUnknownInCatchVariables": false
 	},
-	"include": ["src/**/*", "scripts/**/*"],
-	"exclude": ["node_modules", ".vscode-test", "webview-ui"]
+	"include": [
+		"src/**/*",
+		"scripts/**/*",
+		"tests/**/*"
+	],
+	"exclude": [
+		"node_modules",
+		".vscode-test",
+		"webview-ui"
+	]
 }

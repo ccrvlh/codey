@@ -16,6 +16,21 @@
         "${workspaceFolder}/dist/**/*.js"
       ],
       "preLaunchTask": "${defaultBuildTask}"
+    },
+    {
+      "name": "Run Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionTestsPath=${workspaceFolder}/out/tests"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/tests/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile", // Make sure tests are compiled
+      "internalConsoleOptions": "openOnSessionStart"
     }
   ]
 }
