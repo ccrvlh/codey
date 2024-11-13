@@ -105,12 +105,17 @@ export const responseTemplates = {
   },
 }
 
-
-// to avoid circular dependency
+/**
+ * Converts an array of image data URLs into an array of Anthropic.ImageBlockParam objects.
+ * to avoid circular dependency
+ * data:image/png;base64,base64string
+ *
+ * @param images - An optional array of image data URLs in the format "data:[<mime type>][;base64],<data>".
+ * @returns An array of Anthropic.ImageBlockParam objects, each representing an image block with base64 encoded data.
+ */
 const formatImagesIntoBlocks = (images?: string[]): Anthropic.ImageBlockParam[] => {
   return images
     ? images.map((dataUrl) => {
-      // data:image/png;base64,base64string
       const [rest, base64] = dataUrl.split(",")
       const mimeType = rest.split(":")[1].split(";")[0]
       return {
@@ -121,28 +126,33 @@ const formatImagesIntoBlocks = (images?: string[]): Anthropic.ImageBlockParam[] 
     : []
 }
 
-
-export function truncateConversation(
-  messages: Anthropic.Messages.MessageParam[]
-): Anthropic.Messages.MessageParam[] {
-  /*
-  We can't implement a dynamically updating sliding window as it would break prompt cache
-  every time. To maintain the benefits of caching, we need to keep conversation history
-  static. This operation should be performed as infrequently as possible. If a user reaches
-  a 200k context, we can assume that the first half is likely irrelevant to their current task.
-  Therefore, this function should only be called when absolutely necessary to fit within
-  context limits, not as a continuous process.
-  */
-  // API expects messages to be in user-assistant order, and tool use messages must be followed by tool results. We need to maintain this structure while truncating.
-
-  // Always keep the first Task message (this includes the project's file structure in environment_details)
+/**
+ * Truncates a conversation to fit within context limits by removing a portion of the messages.
+ * 
+ * This function is designed to maintain the benefits of caching by keeping the conversation history static.
+ * It should be called only when absolutely necessary to fit within context limits, not as a continuous process.
+ * 
+ * The API expects messages to be in user-assistant order, and tool use messages must be followed by tool results.
+ * This function maintains this structure while truncating.
+ * 
+ * We can't implement a dynamically updating sliding window as it would break prompt cache
+ * every time. To maintain the benefits of caching, we need to keep conversation history
+ * static. This operation should be performed as infrequently as possible. If a user reaches
+ * a 200k context, we can assume that the first half is likely irrelevant to their current task.
+ * Therefore, this function should only be called when absolutely necessary to fit within
+ * context limits, not as a continuous process.
+ * 
+ * Always keep the first Task message (this includes the project's file structure in environment_details).
+ * 
+ * API expects messages to be in user-assistant order, and tool use messages must be followed by tool results. We need to maintain this structure while truncating.
+ * 
+ * @param messages - An array of message parameters to be truncated.
+ * @returns An array of truncated message parameters.
+ */
+export function truncateConversation(messages: Anthropic.Messages.MessageParam[]): Anthropic.Messages.MessageParam[] {
   const truncatedMessages = [messages[0]]
-
-  // Remove half of user-assistant pairs
-  const messagesToRemove = Math.floor(messages.length / 4) * 2 // has to be even number
-
-  const remainingMessages = messages.slice(messagesToRemove + 1) // has to start with assistant message since tool result cannot follow assistant message with no tool use
+  const messagesToRemove = Math.floor(messages.length / 4) * 2
+  const remainingMessages = messages.slice(messagesToRemove + 1)
   truncatedMessages.push(...remainingMessages)
-
   return truncatedMessages
 }
