@@ -1087,14 +1087,11 @@ export class Agent {
               break
             case "text":
               assistantMessage += chunk.text
-              // parse raw assistant message into content blocks
               const prevLength = this.assistantMessageContent.length
               this.assistantMessageContent = AgentMessageParser.parse(assistantMessage)
               if (this.assistantMessageContent.length > prevLength) {
-                // new content we need to present, reset to false in case previous content set this to true
                 this.userMessageContentReady = false
               }
-              // present content to user
               this.handleAssistantMessage()
               break
           }
