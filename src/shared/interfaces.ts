@@ -1,17 +1,6 @@
-// type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
+import { APIProvider, APIRequestCancelReason, CodeyAsk, CodeySay, CodeySayToolName, ExtensionMessageType, UserResponse, WebviewMessageType } from "./types"
 
-export type ExtensionMessageType =
-  | "action"
-  | "state"
-  | "selectedImages"
-  | "ollamaModels"
-  | "theme"
-  | "workspaceUpdated"
-  | "invoke"
-  | "partialMessage"
-  | "openRouterModels"
 
-// webview will hold state
 export interface ExtensionMessage {
   type: ExtensionMessageType
   text?: string
@@ -25,6 +14,7 @@ export interface ExtensionMessage {
   openRouterModels?: Record<string, ModelInfo>
 }
 
+
 export interface ExtensionState {
   version: string
   apiConfiguration?: APIConfiguration
@@ -37,6 +27,7 @@ export interface ExtensionState {
   shouldShowAnnouncement: boolean
 }
 
+
 export interface CodeyMessage {
   ts: number
   type: "ask" | "say"
@@ -47,50 +38,16 @@ export interface CodeyMessage {
   partial?: boolean
 }
 
-export type CodeyAsk =
-  | "followup"
-  | "command"
-  | "command_output"
-  | "completion_result"
-  | "tool"
-  | "api_req_failed"
-  | "resume_task"
-  | "resume_completed_task"
-  | "mistake_limit_reached"
-
-export type CodeySay =
-  | "task"
-  | "error"
-  | "api_req_started"
-  | "api_req_finished"
-  | "text"
-  | "completion_result"
-  | "user_feedback"
-  | "user_feedback_diff"
-  | "api_req_retried"
-  | "command_output"
-  | "tool"
-  | "shell_integration_warning"
-  | "inspect_site_result"
 
 export interface CodeySayTool {
-  tool:
-  | "editedExistingFile"
-  | "newFileCreated"
-  | "readFile"
-  | "listFilesTopLevel"
-  | "listFilesRecursive"
-  | "listCodeDefinitionNames"
-  | "searchFiles"
-  | "inspectSite"
-  | "searchReplace"
-  | "insertCodeBlock"
+  tool: CodeySayToolName
   path?: string
   diff?: string
   content?: string
   regex?: string
   filePattern?: string
 }
+
 
 export interface APIRequestInfo {
   request?: string
@@ -103,9 +60,8 @@ export interface APIRequestInfo {
   streamingFailedMessage?: string
 }
 
-export type APIRequestCancelReason = "streaming_failed" | "user_cancelled"
 
-export type HistoryItem = {
+export interface HistoryItem {
   id: string
   ts: number
   task: string
@@ -116,36 +72,9 @@ export type HistoryItem = {
   totalCost: number
 }
 
+
 export interface WebviewMessage {
-  type:
-  | "apiConfiguration"
-  | "customInstructions"
-  | "alwaysAllowReadOnly"
-  | "editAutoScroll"
-  | "webviewDidLaunch"
-  | "newTask"
-  | "askResponse"
-  | "clearTask"
-  | "didShowAnnouncement"
-  | "selectImages"
-  | "exportCurrentTask"
-  | "exportTaskDebug"
-  | "showTaskWithId"
-  | "deleteTaskWithId"
-  | "exportTaskWithId"
-  | "exportDebugTaskWithId"
-  | "resetState"
-  | "requestOllamaModels"
-  | "openImage"
-  | "openFile"
-  | "openMention"
-  | "cancelTask"
-  | "refreshOpenRouterModels"
-  | "maxFileLineThreshold"
-  | "maxFileLineThresholdBehavior"
-  | "directoryContextMode"
-  | "directoryContextMaxLines"
-  | "maxMistakeLimit"
+  type: WebviewMessageType
   text?: string
   askResponse?: UserResponse
   apiConfiguration?: APIConfiguration
@@ -153,18 +82,6 @@ export interface WebviewMessage {
   bool?: boolean
   value?: number  // Added for number-based config values
 }
-
-export type UserResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
-
-export type APIProvider =
-  | "anthropic"
-  | "openrouter"
-  | "bedrock"
-  | "vertex"
-  | "openai"
-  | "ollama"
-  | "gemini"
-  | "openai-native"
 
 
 export interface APIHandlerOptions {
@@ -190,11 +107,11 @@ export interface APIHandlerOptions {
   azureApiVersion?: string
 }
 
-export type APIConfiguration = APIHandlerOptions & {
+
+export interface APIConfiguration extends APIHandlerOptions {
   apiProvider?: APIProvider
 }
 
-// Models
 
 export interface ModelInfo {
   maxTokens?: number

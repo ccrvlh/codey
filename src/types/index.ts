@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { UserResponse } from "../shared/interfaces";
+import { UserResponse } from "../shared/types";
 
 
 export type AskUserResponse = {

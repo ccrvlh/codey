@@ -17,14 +17,12 @@ import { listFiles } from "../services/glob/list-files"
 import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
 import {
   APIConfiguration,
-  APIRequestCancelReason,
   APIRequestInfo,
-  CodeyAsk,
   CodeyMessage,
-  CodeySay, ExtensionMessageType, HistoryItem,
-  UserResponse
+  HistoryItem,
 } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
+import { APIRequestCancelReason, CodeyAsk, CodeySay, ExtensionMessageType, UserResponse } from "../shared/types"
 import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, toolUseNames, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHistory } from "../utils/fs"
@@ -110,16 +108,38 @@ export class Agent {
 
   // Persistence Methods
 
+  /**
+   * Adds a message to the API conversation history and saves the updated history to persistent storage.
+   *
+   * @param message - The message to be added to the conversation history.
+   * @returns A promise that resolves when the conversation history has been saved.
+   */
   private async addToApiConversationHistory(message: Anthropic.MessageParam) {
     this.apiConversationHistory.push(message)
     await this.saveApiConversationHistory(this.globalStoragePath, this.taskId, this.apiConversationHistory)
   }
 
+  /**
+   * Overwrites the current API conversation history with a new history.
+   *
+   * @param newHistory - An array of `Anthropic.MessageParam` representing the new conversation history.
+   * @returns A promise that resolves once the conversation history has been saved.
+   */
   private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
     this.apiConversationHistory = newHistory
     await this.saveApiConversationHistory(this.globalStoragePath, this.taskId, this.apiConversationHistory)
   }
 
+  /**
+   * Saves the API conversation history to a specified storage path.
+   *
+   * @param storagePath - The path where the conversation history should be stored.
+   * @param taskId - The unique identifier for the task.
+   * @param history - An array of messages representing the conversation history.
+   * 
+   * @returns A promise that resolves when the conversation history has been successfully saved.
+   * @throws Will log an error message if saving the conversation history fails.
+   */
   private async saveApiConversationHistory(storagePath: string, taskId: string, history: Anthropic.Messages.MessageParam[]) {
     try {
       const dir = await ensureTaskDirectoryExists(storagePath, taskId)
@@ -131,6 +151,18 @@ export class Agent {
     }
   }
 
+  /**
+   * Retrieves saved Codey messages from the specified storage path and task ID.
+   * 
+   * This function first checks for the existence of the messages file in the current
+   * directory. If the file exists, it reads and parses the JSON content. If the file
+   * does not exist, it checks an old location for the messages file, reads and parses
+   * the JSON content if found, and then removes the old file.
+   * 
+   * @param storagePath - The base path where task directories are stored.
+   * @param taskId - The unique identifier for the task.
+   * @returns A promise that resolves to an array of CodeyMessage objects.
+   */
   private async getSavedCodeyMessages(storagePath: string, taskId: string): Promise<CodeyMessage[]> {
     const dir = await ensureTaskDirectoryExists(storagePath, taskId)
     const filePath = path.join(dir, GlobalFileNames.uiMessages)
@@ -149,16 +181,41 @@ export class Agent {
     return []
   }
 
+  /**
+   * Adds a message to the codeyMessages array and saves the updated array to the global storage.
+   *
+   * @param message - The CodeyMessage object to be added to the codeyMessages array.
+   * @returns A promise that resolves when the codeyMessages array has been saved.
+   */
   private async addToCodeyMessages(message: CodeyMessage) {
     this.codeyMessages.push(message)
     await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
   }
 
+  /**
+   * Overwrites the current Codey messages with new messages and saves them.
+   *
+   * @param newMessages - An array of new CodeyMessage objects to replace the current messages.
+   * @returns A promise that resolves when the messages have been saved.
+   */
   private async overwriteCodeyMessages(newMessages: CodeyMessage[]) {
     this.codeyMessages = newMessages
     await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
   }
 
+  /**
+   * Saves Codey messages to a specified storage path and updates the task history.
+   *
+   * @param storagePath - The path where the task directory is located.
+   * @param taskId - The unique identifier of the task.
+   * @param messages - An array of CodeyMessage objects to be saved.
+   *
+   * @throws Will log an error message if saving the messages or updating the task history fails.
+   *
+   * @remarks
+   * This method ensures that the task directory exists, writes the messages to a file,
+   * calculates API metrics, and updates the task history with relevant information.
+   */
   private async saveCodeyMessages(storagePath: string, taskId: string, messages: CodeyMessage[]) {
     try {
       const dir = await ensureTaskDirectoryExists(storagePath, taskId)
@@ -166,12 +223,7 @@ export class Agent {
       await fs.writeFile(filePath, JSON.stringify(messages))
       const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(messages.slice(1))))
       const taskMessage = messages[0] // first message is always the task say
-      const lastRelevantMessage = messages[
-        findLastIndex(
-          messages,
-          (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
-        )
-      ]
+      const lastRelevantMessage = messages[findLastIndex(messages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))]
       await this.providerRef.deref()?.updateTaskHistory({
         id: taskId,
         ts: lastRelevantMessage.ts,
@@ -189,21 +241,41 @@ export class Agent {
 
   // Webview Methods
 
+  /**
+   * Asks the user a question and waits for their response.
+   * 
+   * Partial has three valid states:
+   *  - true (partial message)
+   *  - false (completion of partial message)
+   *  - undefined (individual complete message)
+   * 
+   * If this Codey instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background
+   * in which case we don't want to send its result to the webview as it is attached to a new instance of Codey now.
+   * So we can safely ignore the result of any active promises, and this class will be deallocated.
+   * (Although we set Codey = undefined in provider, that simply removes the reference to this instance,
+   * but the instance is still alive until this promise resolves or rejects.)
+   * 
+   * Bug for the history books (isUpdatingPreviousPartial):
+   * In the webview we use the ts as the chatrow key for the virtuoso list. Since we would update this ts right at the end of streaming,
+   * it would cause the view to flicker. The key prop has to be stable otherwise react has trouble reconciling items between renders,
+   * causing unmounting and remounting of components (flickering).
+   * The lesson here is if you see flickering when rendering lists, it's likely because the key prop is not stable.
+   * So in this case we must make sure that the message ts is never altered after first setting it.
+   * 
+   * @param type - The type of question being asked.
+   * @param text - Optional text of the question.
+   * @param partial - Optional flag indicating if the message is partial.
+   * @returns A promise that resolves to the user's response.
+   * @throws An error if the Codey instance is aborted or if the current ask promise is ignored.
+   */
   async askUser(type: CodeyAsk, text?: string, partial?: boolean): Promise<AskUserResponse> {
-    // partial has three valid states true (partial message), false (completion of partial message), undefined (individual complete message)
-    // If this Codey instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background
-    // in which case we don't want to send its result to the webview as it is attached to a new instance of Codey now.
-    // So we can safely ignore the result of any active promises, and this class will be deallocated.
-    // (Although we set Codey = undefined in provider, that simply removes the reference to this instance,
-    // but the instance is still alive until this promise resolves or rejects.)
     if (this.abort) {
       throw new Error("Codey instance aborted")
     }
     let askTs: number
     if (partial !== undefined) {
       const lastMessage = this.codeyMessages.at(-1)
-      const isUpdatingPreviousPartial =
-        lastMessage && lastMessage.partial && lastMessage.type === "ask" && lastMessage.ask === type
+      const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === "ask" && lastMessage.ask === type
       if (partial) {
         if (isUpdatingPreviousPartial) {
           // existing partial message, so update it
@@ -227,14 +299,6 @@ export class Agent {
         // partial=false means its a complete version of a previously partial message
         if (isUpdatingPreviousPartial) {
           // this is the complete version of a previously partial message, so replace the partial with the complete version
-          /*
-          Bug for the history books:
-          In the webview we use the ts as the chatrow key for the virtuoso list. Since we would update this ts right at the end of streaming,
-          it would cause the view to flicker. The key prop has to be stable otherwise react has trouble reconciling items between renders,
-          causing unmounting and remounting of components (flickering).
-          The lesson here is if you see flickering when rendering lists, it's likely because the key prop is not stable.
-          So in this case we must make sure that the message ts is never altered after first setting it.
-          */
           await this.resetUserResponse()
           askTs = lastMessage.ts
           this.lastMessageTs = askTs
@@ -273,14 +337,28 @@ export class Agent {
     return result
   }
 
-  async resetUserResponse() {
+  /**
+   * Resets the user's response data by setting the userResponse, 
+   * userResponseText, and userResponseImages properties to undefined.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the reset is complete.
+   */
+  async resetUserResponse(): Promise<void> {
     this.userResponse = undefined
     this.userResponseText = undefined
     this.userResponseImages = undefined
   }
 
-  async handleWebviewUserResponse(askResponse: UserResponse, text?: string, images?: string[]) {
-    this.userResponse = askResponse
+  /**
+   * Handles the user response from a webview.
+   *
+   * @param response - The user's response object.
+   * @param text - Optional text provided by the user.
+   * @param images - Optional array of image URLs provided by the user.
+   * @returns A promise that resolves when the user response has been handled.
+   */
+  async handleWebviewUserResponse(response: UserResponse, text?: string, images?: string[]) {
+    this.userResponse = response
     this.userResponseText = text
     this.userResponseImages = images
   }

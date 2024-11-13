@@ -5,9 +5,11 @@ import { useDeepCompareEffect, useEvent, useMount } from "react-use"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import styled from "styled-components"
 import { combineApiRequests, combineCommandSequences } from "../../../../src/shared/combiners"
+import { MAX_IMAGES_PER_MESSAGE } from "../../../../src/shared/const"
 import { findLast } from "../../../../src/shared/helpers"
-import { CodeyAsk, CodeySayTool, ExtensionMessage } from "../../../../src/shared/interfaces"
+import { CodeySayTool, ExtensionMessage } from "../../../../src/shared/interfaces"
 import { getApiMetrics } from "../../../../src/shared/metrics"
+import { CodeyAsk } from "../../../../src/shared/types"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
 import HistoryPreview from "../history/HistoryPreview"
@@ -23,8 +25,6 @@ interface ChatViewProps {
   hideAnnouncement: () => void
   showHistoryView: () => void
 }
-
-export const MAX_IMAGES_PER_MESSAGE = 20 // Anthropic limits to 20 images
 
 const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryView }: ChatViewProps) => {
   const { version, codeyMessages: messages, taskHistory, apiConfiguration } = useExtensionState()

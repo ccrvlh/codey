@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import DynamicTextArea from "react-textarea-autosize"
+import { MAX_IMAGES_PER_MESSAGE } from "../../../../src/shared/const"
 import { MENTION_REGEX, MENTION_REGEX_GLOBAL } from "../../../../src/shared/mentions"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import {
@@ -10,7 +11,6 @@ import {
   shouldShowContextMenu,
 } from "../../utils/context-mentions"
 import Thumbnails from "../common/Thumbnails"
-import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
 
 interface ChatTextAreaProps {
