@@ -701,7 +701,8 @@ export class ToolExecutor {
       this.codey.consecutiveMistakeCount = 0
       const { text, images } = await this.codey.askUser("followup", question, false)
       await this.codey.sendMessage("user_feedback", text ?? "", images)
-      this.codey.pushToolResult(block, responseTemplates.toolResult(`<answer>\n${text}\n</answer>`, images))
+      const response = responseTemplates.toolResult(`<answer>\n${text}\n</answer>`, images)
+      this.codey.pushToolResult(block, response)
       return
 
     } catch (error) {
@@ -711,40 +712,36 @@ export class ToolExecutor {
   }
 
   async searchReplaceTool(block: ToolUse) {
+    console.debug("[DEBUG] Search and replace tool running...")
     const contentParam: string | undefined = block.params.content
-    console.debug("contentParam:", contentParam);
     const relPath: string | undefined = block.params.path
+    const cleanPath = this.removeClosingTag(block, "path", relPath)
     const sharedMessageProps: CodeySayTool = {
       tool: "searchReplace",
-      path: getReadablePath(this.cwd, this.removeClosingTag(block, "path", relPath)),
+      path: getReadablePath(this.cwd, cleanPath),
     }
 
     if (!contentParam) {
-      console.debug("Content parameter is missing. Waiting for the full content to come in.");
+      console.warn("[WARN] Content parameter is missing. Waiting for the full content to come in.");
       return;
     }
 
-    const content = this.cleanUpContent(contentParam);
-    console.debug("Cleaned up content:", content);
-
     try {
+      const content = this.cleanUpContent(contentParam);
       if (block.partial) {
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: undefined,
         } satisfies CodeySayTool)
-        await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {
-          console.debug("Partial message ask failed.");
+        await this.codey.askUser("tool", partialMessage, block.partial).catch((e) => {
+          console.error("[ERROR] Partial message ask failed: ", e.message);
         });
         return
       }
 
       const lines = content.split('\n');
-      console.debug("Content lines:", lines);
-
-      // First non-empty line should be the file path
       const filePath = lines[0]?.trim();
-      console.debug("File path:", filePath);
+      console.debug("[DEBUG] File path:", filePath);
       if (!filePath) {
         await this.handleError(block, "performing search and replace", new Error("file path not provided"));
         return;
@@ -761,54 +758,44 @@ export class ToolExecutor {
 
         if (line.match(/^<{5,9} SEARCH\s*$/)) {
           currentSection = 'search';
-          console.debug("Entering search section.");
           continue;
         }
         if (line.match(/^={5,9}\s*$/)) {
           currentSection = 'replace';
-          console.debug("Entering replace section.");
           continue;
         }
         if (line.match(/^>{5,9} REPLACE\s*$/)) {
-          console.debug("End of block.");
-          break; // End of block
+          break;
         }
 
         // Add lines to appropriate section
         if (currentSection === 'search') {
           searchContent += (searchContent ? '\n' : '') + line;
-          console.debug("Adding to search content:", line);
         } else if (currentSection === 'replace') {
           replaceContent += (replaceContent ? '\n' : '') + line;
-          console.debug("Adding to replace content:", line);
         }
       }
 
       // Validate we have all required parts
       if (!searchContent || !replaceContent) {
-        console.debug("Waiting for the full content to come in.");
+        console.debug("[DEBUG] Missing required search/replace content parts... Waiting for the full content to come in.");
         return
       }
 
-      console.debug("Search content:", searchContent);
-      console.debug("Replace content:", replaceContent);
-
       const absolutePath = path.resolve(this.cwd, filePath);
-      console.debug("Absolute file path:", absolutePath);
+      console.debug("[DEBUG] Absolute file path:", absolutePath);
       const originalContent = await fs.readFile(absolutePath, 'utf8');
-      console.debug("Original file content:", originalContent);
+      console.debug("[DEBUG] Original file content:", originalContent);
 
       // Open the file in diff view
       const document = await vscode.workspace.openTextDocument(absolutePath);
       const editor = await vscode.window.showTextDocument(document);
-      console.debug("Opened file in editor.");
-
+      console.debug("[DEBUG] Opened file in editor.");
       const fileContent = document.getText();
-      console.debug("File content from editor:", fileContent);
 
       // Find the index of the content to search
       const searchIndex = fileContent.indexOf(searchContent);
-      console.debug("Search content index:", searchIndex);
+      console.debug("[DEBUG] Search content index:", searchIndex);
 
       if (searchIndex === -1) {
         const err = new Error("search content not found in file. make sure you're using the right search content, and the right file path.");
@@ -821,21 +808,21 @@ export class ToolExecutor {
       const startPos = document.positionAt(searchIndex);
       const endPos = document.positionAt(searchIndex + searchContent.length);
       const range = new vscode.Range(startPos, endPos);
-      console.debug("Range for replacement:", range);
+      console.debug("[DEBUG] Range for replacement:", range);
 
       // Apply the replacement with the specified format
       await editor.edit(editBuilder => {
         editBuilder.insert(range.start, `<<<<<<< SEARCH\n`);
         editBuilder.insert(range.end, `\n=======\n${replaceContent}\n>>>>>>> REPLACE`);
       });
-      console.debug("Applied replacement in editor.");
+      console.debug("[DEBUG] Applied replacement in editor.");
 
       // Move the cursor to the beginning of the `replaceContent`
       const dividerLength = 9; // Length of `=======\n`
       const replaceStartPos = document.positionAt(searchIndex + searchContent.length + dividerLength);
       editor.selection = new vscode.Selection(replaceStartPos, replaceStartPos);
       editor.revealRange(new vscode.Range(replaceStartPos, replaceStartPos), vscode.TextEditorRevealType.InCenter);
-      console.debug("Set cursor position to the start of the replaced content.");
+      console.debug("[DEBUG] Set cursor position to the start of the replaced content.");
 
       const completeMessage = JSON.stringify({
         tool: "searchReplace",
@@ -872,7 +859,8 @@ export class ToolExecutor {
         });
 
         await document.save();
-        this.codey.pushToolResult(block, `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`);
+        const response = `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`
+        this.codey.pushToolResult(block, response);
         await this.diffViewProvider.reset();
         return;
       }
@@ -903,7 +891,7 @@ export class ToolExecutor {
       await this.diffViewProvider.reset();
 
     } catch (error) {
-      console.error("Error during search and replace:", error);
+      console.error("[ERROR] Error during search and replace:", error);
       await this.handleError(block, "performing search and replace", error);
       await this.diffViewProvider.reset();
       return
@@ -1077,46 +1065,57 @@ export class ToolExecutor {
   async handleToolUse(block: ToolUse) {
     switch (block.name) {
       case "write_to_file": {
+        console.debug("[DEBUG] Write to file tool called with block:", block)
         await this.writeToFileTool(block)
         return
       }
       case "read_file": {
+        console.debug("[DEBUG] Read file tool called with block:", block)
         await this.readFileTool(block)
         return
       }
       case "list_files": {
+        console.debug("[DEBUG] List files tool called with block:", block)
         await this.listFilesTool(block)
         return
       }
       case "list_code_definition_names": {
+        console.debug("[DEBUG] List code definition names tool called with block:", block)
         await this.listCodeDefinitionNamesTool(block)
         return
       }
       case "search_files": {
+        console.debug("[DEBUG] Search files tool called with block:", block)
         await this.searchFilesTool(block)
         return
       }
       case "inspect_site": {
+        console.debug("[DEBUG] Inspect site tool called with block:", block)
         await this.inspectSizeTool(block)
         return
       }
       case "execute_command": {
+        console.debug("[DEBUG] Execute command tool called with block:", block)
         await this.executeCommandTool(block)
         return
       }
       case "ask_followup_question": {
+        console.debug("[DEBUG] Ask follow-up question tool called with block:", block)
         await this.askFollowupQuestionTool(block)
         return
       }
       case "attempt_completion": {
+        console.debug("[DEBUG] Attempt completion tool called with block:", block)
         await this.attemptCompletionTool(block)
         return
       }
       case "search_replace": {
+        console.debug("[DEBUG] Search and replace tool called with block:", block)
         await this.searchReplaceTool(block)
         return
       }
       case "insert_code_block": {
+        console.debug("[DEBUG] Insert code block tool called with block:", block)
         await this.insertCodeBlockTool(block)
         return
       }
