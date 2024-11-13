@@ -3,45 +3,35 @@ import {
   VSCodeDropdown,
   VSCodeLink,
   VSCodeOption,
-  VSCodeRadio,
-  VSCodeRadioGroup,
   VSCodeTextField,
 } from "@vscode/webview-ui-toolkit/react"
-import { Fragment, memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useEvent, useInterval } from "react-use"
 import {
   ModelInfo,
-  anthropicDefaultModelId,
   anthropicModels,
   azureOpenAiDefaultApiVersion,
-  bedrockDefaultModelId,
   bedrockModels,
-  geminiDefaultModelId,
   geminiModels,
-  openAiModelInfoSaneDefaults,
-  openAiNativeDefaultModelId,
   openAiNativeModels,
-  openRouterDefaultModelId,
-  openRouterDefaultModelInfo,
-  vertexDefaultModelId,
   vertexModels,
 } from "../../../../src/shared/api"
 import { APIConfiguration, ExtensionMessage } from "../../../../src/shared/interfaces"
 import { useExtensionState } from "../../context/ExtensionStateContext"
+import { normalizeApiConfiguration } from "../../utils/providers"
 import { vscode } from "../../utils/vscode"
 import VSCodeButtonLink from "../common/VSCodeButtonLink"
-import OpenRouterModelPicker, {
-  ModelDescriptionMarkdown,
-  OPENROUTER_MODEL_PICKER_Z_INDEX,
-} from "./OpenRouterModelPicker"
+import { ModelInfoView } from "./APIOptionsModelInfo"
+import APIOptionsOllama from "./APIOptionsOllama"
+import OpenRouterModelPicker, { OPENROUTER_MODEL_PICKER_Z_INDEX } from "./OpenRouterModelPicker"
 
-interface ApiOptionsProps {
+interface APIOptionsProps {
   showModelOptions: boolean
   apiErrorMessage?: string
   modelIdErrorMessage?: string
 }
 
-const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: ApiOptionsProps) => {
+const APIOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: APIOptionsProps) => {
   const { apiConfiguration, setApiConfiguration, uriScheme } = useExtensionState()
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const [anthropicBaseUrlSelected, setAnthropicBaseUrlSelected] = useState(!!apiConfiguration?.anthropicBaseUrl)
@@ -107,6 +97,10 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
         ))}
       </VSCodeDropdown>
     )
+  }
+
+  function getOpenRouterAuthUrl(uriScheme?: string) {
+    return `https://openrouter.ai/auth?callback_url=${uriScheme || "vscode"}://ccrvlh.codey/openrouter`
   }
 
   return (
@@ -281,17 +275,10 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
               style={{ width: "100%" }}
               onChange={handleInputChange("awsRegion")}>
               <VSCodeOption value="">Select a region...</VSCodeOption>
-              {/* The user will have to choose a region that supports the model they use, but this shouldn't be a problem since they'd have to request access for it in that region in the first place. */}
               <VSCodeOption value="us-east-1">us-east-1</VSCodeOption>
-              {/* <VSCodeOption value="us-east-2">us-east-2</VSCodeOption> */}
-              {/* <VSCodeOption value="us-west-1">us-west-1</VSCodeOption> */}
               <VSCodeOption value="us-west-2">us-west-2</VSCodeOption>
-              {/* <VSCodeOption value="af-south-1">af-south-1</VSCodeOption> */}
-              {/* <VSCodeOption value="ap-east-1">ap-east-1</VSCodeOption> */}
               <VSCodeOption value="ap-south-1">ap-south-1</VSCodeOption>
               <VSCodeOption value="ap-northeast-1">ap-northeast-1</VSCodeOption>
-              {/* <VSCodeOption value="ap-northeast-2">ap-northeast-2</VSCodeOption> */}
-              {/* <VSCodeOption value="ap-northeast-3">ap-northeast-3</VSCodeOption> */}
               <VSCodeOption value="ap-southeast-1">ap-southeast-1</VSCodeOption>
               <VSCodeOption value="ap-southeast-2">ap-southeast-2</VSCodeOption>
               <VSCodeOption value="ca-central-1">ca-central-1</VSCodeOption>
@@ -299,8 +286,6 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
               <VSCodeOption value="eu-west-1">eu-west-1</VSCodeOption>
               <VSCodeOption value="eu-west-2">eu-west-2</VSCodeOption>
               <VSCodeOption value="eu-west-3">eu-west-3</VSCodeOption>
-              {/* <VSCodeOption value="eu-north-1">eu-north-1</VSCodeOption> */}
-              {/* <VSCodeOption value="me-south-1">me-south-1</VSCodeOption> */}
               <VSCodeOption value="sa-east-1">sa-east-1</VSCodeOption>
             </VSCodeDropdown>
           </div>
@@ -449,61 +434,66 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
       )}
 
       {selectedProvider === "ollama" && (
-        <div>
-          <VSCodeTextField
-            value={apiConfiguration?.ollamaBaseUrl || ""}
-            style={{ width: "100%" }}
-            type="url"
-            onInput={handleInputChange("ollamaBaseUrl")}
-            placeholder={"Default: http://localhost:11434"}>
-            <span style={{ fontWeight: 500 }}>Base URL (optional)</span>
-          </VSCodeTextField>
-          <VSCodeTextField
-            value={apiConfiguration?.ollamaModelId || ""}
-            style={{ width: "100%" }}
-            onInput={handleInputChange("ollamaModelId")}
-            placeholder={"e.g. llama3.1"}>
-            <span style={{ fontWeight: 500 }}>Model ID</span>
-          </VSCodeTextField>
-          {ollamaModels.length > 0 && (
-            <VSCodeRadioGroup
-              value={
-                ollamaModels.includes(apiConfiguration?.ollamaModelId || "") ? apiConfiguration?.ollamaModelId : ""
-              }
-              onChange={(e) => {
-                const value = (e.target as HTMLInputElement)?.value
-                // need to check value first since radio group returns empty string sometimes
-                if (value) {
-                  handleInputChange("ollamaModelId")({
-                    target: { value },
-                  })
-                }
-              }}>
-              {ollamaModels.map((model) => (
-                <VSCodeRadio key={model} value={model} checked={apiConfiguration?.ollamaModelId === model}>
-                  {model}
-                </VSCodeRadio>
-              ))}
-            </VSCodeRadioGroup>
-          )}
-          <p
-            style={{
-              fontSize: "12px",
-              marginTop: "5px",
-              color: "var(--vscode-descriptionForeground)",
-            }}>
-            Ollama allows you to run models locally on your computer. For instructions on how to get started, see their
-            <VSCodeLink
-              href="https://github.com/ollama/ollama/blob/main/README.md"
-              style={{ display: "inline", fontSize: "inherit" }}>
-              quickstart guide.
-            </VSCodeLink>
-            <span style={{ color: "var(--vscode-errorForeground)" }}>
-              (<span style={{ fontWeight: 500 }}>Note:</span> Codey uses complex prompts and works best with Claude
-              models. Less capable models may not work as expected.)
-            </span>
-          </p>
-        </div>
+        // <div>
+        //   <VSCodeTextField
+        //     value={apiConfiguration?.ollamaBaseUrl || ""}
+        //     style={{ width: "100%" }}
+        //     type="url"
+        //     onInput={handleInputChange("ollamaBaseUrl")}
+        //     placeholder={"Default: http://localhost:11434"}>
+        //     <span style={{ fontWeight: 500 }}>Base URL (optional)</span>
+        //   </VSCodeTextField>
+        //   <VSCodeTextField
+        //     value={apiConfiguration?.ollamaModelId || ""}
+        //     style={{ width: "100%" }}
+        //     onInput={handleInputChange("ollamaModelId")}
+        //     placeholder={"e.g. llama3.1"}>
+        //     <span style={{ fontWeight: 500 }}>Model ID</span>
+        //   </VSCodeTextField>
+        //   {ollamaModels.length > 0 && (
+        //     <VSCodeRadioGroup
+        //       value={
+        //         ollamaModels.includes(apiConfiguration?.ollamaModelId || "") ? apiConfiguration?.ollamaModelId : ""
+        //       }
+        //       onChange={(e) => {
+        //         const value = (e.target as HTMLInputElement)?.value
+        //         // need to check value first since radio group returns empty string sometimes
+        //         if (value) {
+        //           handleInputChange("ollamaModelId")({
+        //             target: { value },
+        //           })
+        //         }
+        //       }}>
+        //       {ollamaModels.map((model) => (
+        //         <VSCodeRadio key={model} value={model} checked={apiConfiguration?.ollamaModelId === model}>
+        //           {model}
+        //         </VSCodeRadio>
+        //       ))}
+        //     </VSCodeRadioGroup>
+        //   )}
+        //   <p
+        //     style={{
+        //       fontSize: "12px",
+        //       marginTop: "5px",
+        //       color: "var(--vscode-descriptionForeground)",
+        //     }}>
+        //     Ollama allows you to run models locally on your computer. For instructions on how to get started, see their
+        //     <VSCodeLink
+        //       href="https://github.com/ollama/ollama/blob/main/README.md"
+        //       style={{ display: "inline", fontSize: "inherit" }}>
+        //       quickstart guide.
+        //     </VSCodeLink>
+        //     <span style={{ color: "var(--vscode-errorForeground)" }}>
+        //       (<span style={{ fontWeight: 500 }}>Note:</span> Codey uses complex prompts and works best with Claude
+        //       models. Less capable models may not work as expected.)
+        //     </span>
+        //   </p>
+        // </div>
+        <APIOptionsOllama
+          apiConfiguration={apiConfiguration}
+          ollamaModels={ollamaModels}
+          handleInputChange={handleInputChange}
+        />
       )}
 
       {apiErrorMessage && (
@@ -558,181 +548,4 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage }: 
   )
 }
 
-export function getOpenRouterAuthUrl(uriScheme?: string) {
-  return `https://openrouter.ai/auth?callback_url=${uriScheme || "vscode"}://ccrvlh.codey/openrouter`
-}
-
-export const formatPrice = (price: number) => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(price)
-}
-
-export const ModelInfoView = ({
-  selectedModelId,
-  modelInfo,
-  isDescriptionExpanded,
-  setIsDescriptionExpanded,
-}: {
-  selectedModelId: string
-  modelInfo: ModelInfo
-  isDescriptionExpanded: boolean
-  setIsDescriptionExpanded: (isExpanded: boolean) => void
-}) => {
-  const isGemini = Object.keys(geminiModels).includes(selectedModelId)
-
-  const infoItems = [
-    modelInfo.description && (
-      <ModelDescriptionMarkdown
-        key="description"
-        markdown={modelInfo.description}
-        isExpanded={isDescriptionExpanded}
-        setIsExpanded={setIsDescriptionExpanded}
-      />
-    ),
-    <ModelInfoSupportsItem
-      key="supportsImages"
-      isSupported={modelInfo.supportsImages ?? false}
-      supportsLabel="Supports images"
-      doesNotSupportLabel="Does not support images"
-    />,
-    !isGemini && (
-      <ModelInfoSupportsItem
-        key="supportsPromptCache"
-        isSupported={modelInfo.supportsPromptCache}
-        supportsLabel="Supports prompt caching"
-        doesNotSupportLabel="Does not support prompt caching"
-      />
-    ),
-    modelInfo.maxTokens !== undefined && modelInfo.maxTokens > 0 && (
-      <span key="maxTokens">
-        <span style={{ fontWeight: 500 }}>Max output:</span> {modelInfo.maxTokens?.toLocaleString()} tokens
-      </span>
-    ),
-    modelInfo.inputPrice !== undefined && modelInfo.inputPrice > 0 && (
-      <span key="inputPrice">
-        <span style={{ fontWeight: 500 }}>Input price:</span> {formatPrice(modelInfo.inputPrice)}/million tokens
-      </span>
-    ),
-    modelInfo.supportsPromptCache && modelInfo.cacheWritesPrice && (
-      <span key="cacheWritesPrice">
-        <span style={{ fontWeight: 500 }}>Cache writes price:</span> {formatPrice(modelInfo.cacheWritesPrice || 0)}
-        /million tokens
-      </span>
-    ),
-    modelInfo.supportsPromptCache && modelInfo.cacheReadsPrice && (
-      <span key="cacheReadsPrice">
-        <span style={{ fontWeight: 500 }}>Cache reads price:</span> {formatPrice(modelInfo.cacheReadsPrice || 0)}
-        /million tokens
-      </span>
-    ),
-    modelInfo.outputPrice !== undefined && modelInfo.outputPrice > 0 && (
-      <span key="outputPrice">
-        <span style={{ fontWeight: 500 }}>Output price:</span> {formatPrice(modelInfo.outputPrice)}/million tokens
-      </span>
-    ),
-    isGemini && (
-      <span key="geminiInfo" style={{ fontStyle: "italic" }}>
-        * Free up to {selectedModelId && selectedModelId.includes("flash") ? "15" : "2"} requests per minute. After
-        that, billing depends on prompt size.{" "}
-        <VSCodeLink href="https://ai.google.dev/pricing" style={{ display: "inline", fontSize: "inherit" }}>
-          For more info, see pricing details.
-        </VSCodeLink>
-      </span>
-    ),
-  ].filter(Boolean)
-
-  return (
-    <p style={{ fontSize: "12px", marginTop: "2px", color: "var(--vscode-descriptionForeground)" }}>
-      {infoItems.map((item, index) => (
-        <Fragment key={index}>
-          {item}
-          {index < infoItems.length - 1 && <br />}
-        </Fragment>
-      ))}
-    </p>
-  )
-}
-
-const ModelInfoSupportsItem = ({
-  isSupported,
-  supportsLabel,
-  doesNotSupportLabel,
-}: {
-  isSupported: boolean
-  supportsLabel: string
-  doesNotSupportLabel: string
-}) => (
-  <span
-    style={{
-      fontWeight: 500,
-      color: isSupported ? "var(--vscode-charts-green)" : "var(--vscode-errorForeground)",
-    }}>
-    <i
-      className={`codicon codicon-${isSupported ? "check" : "x"}`}
-      style={{
-        marginRight: 4,
-        marginBottom: isSupported ? 1 : -1,
-        fontSize: isSupported ? 11 : 13,
-        fontWeight: 700,
-        display: "inline-block",
-        verticalAlign: "bottom",
-      }}></i>
-    {isSupported ? supportsLabel : doesNotSupportLabel}
-  </span>
-)
-
-export function normalizeApiConfiguration(apiConfiguration?: APIConfiguration) {
-  const provider = apiConfiguration?.apiProvider || "anthropic"
-  const modelId = apiConfiguration?.apiModelId
-
-  const getProviderData = (models: Record<string, ModelInfo>, defaultId: string) => {
-    let selectedModelId: string
-    let selectedModelInfo: ModelInfo
-    if (modelId && modelId in models) {
-      selectedModelId = modelId
-      selectedModelInfo = models[modelId]
-    } else {
-      selectedModelId = defaultId
-      selectedModelInfo = models[defaultId]
-    }
-    return { selectedProvider: provider, selectedModelId, selectedModelInfo }
-  }
-  switch (provider) {
-    case "anthropic":
-      return getProviderData(anthropicModels, anthropicDefaultModelId)
-    case "bedrock":
-      return getProviderData(bedrockModels, bedrockDefaultModelId)
-    case "vertex":
-      return getProviderData(vertexModels, vertexDefaultModelId)
-    case "gemini":
-      return getProviderData(geminiModels, geminiDefaultModelId)
-    case "openai-native":
-      return getProviderData(openAiNativeModels, openAiNativeDefaultModelId)
-    case "openrouter":
-      return {
-        selectedProvider: provider,
-        selectedModelId: apiConfiguration?.openRouterModelId || openRouterDefaultModelId,
-        selectedModelInfo: apiConfiguration?.openRouterModelInfo || openRouterDefaultModelInfo,
-      }
-    case "openai":
-      return {
-        selectedProvider: provider,
-        selectedModelId: apiConfiguration?.openAiModelId || "",
-        selectedModelInfo: openAiModelInfoSaneDefaults,
-      }
-    case "ollama":
-      return {
-        selectedProvider: provider,
-        selectedModelId: apiConfiguration?.ollamaModelId || "",
-        selectedModelInfo: openAiModelInfoSaneDefaults,
-      }
-    default:
-      return getProviderData(anthropicModels, anthropicDefaultModelId)
-  }
-}
-
-export default memo(ApiOptions)
+export default memo(APIOptions)

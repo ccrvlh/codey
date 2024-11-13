@@ -3,13 +3,11 @@ import { useEffect, useState } from "react"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration } from "../../utils/validators"
 import { vscode } from "../../utils/vscode"
-import ApiOptions from "../settings/ApiOptions"
+import APIOptions from "../settings/APIOptions"
 
 const WelcomeView = () => {
   const { apiConfiguration } = useExtensionState()
-
   const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
-
   const disableLetsGoButton = apiErrorMessage != null
 
   const handleSubmit = () => {
@@ -37,7 +35,7 @@ const WelcomeView = () => {
       <b>To get started, this extension needs an API provider for Claude 3.5 Sonnet.</b>
 
       <div style={{ marginTop: "10px" }}>
-        <ApiOptions showModelOptions={false} />
+        <APIOptions showModelOptions={false} />
         <VSCodeButton onClick={handleSubmit} disabled={disableLetsGoButton} style={{ marginTop: "3px" }}>
           Let's go!
         </VSCodeButton>

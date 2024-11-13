@@ -11,7 +11,7 @@ import { useConfig } from "../../context/ConfigContext"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "../../utils/validators"
 import { vscode } from "../../utils/vscode"
-import ApiOptions from "./ApiOptions"
+import APIOptions from "./APIOptions"
 
 const IS_DEV = true // FIXME: use flags when packaging
 
@@ -86,7 +86,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
       </div>
       <div style={{ flexGrow: 1, overflowY: "scroll", paddingRight: 8, display: "flex", flexDirection: "column" }}>
         <div style={{ marginBottom: 5 }}>
-          <ApiOptions
+          <APIOptions
             showModelOptions={true}
             apiErrorMessage={apiErrorMessage}
             modelIdErrorMessage={modelIdErrorMessage}

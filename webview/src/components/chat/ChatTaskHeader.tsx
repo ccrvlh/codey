@@ -19,7 +19,7 @@ interface TaskHeaderProps {
   onClose: () => void
 }
 
-const TaskHeader: React.FC<TaskHeaderProps> = ({
+const ChatTaskHeader: React.FC<TaskHeaderProps> = ({
   task,
   tokensIn,
   tokensOut,
@@ -44,28 +44,6 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
 	- https://github.com/streamich/react-use/blob/master/src/useEvent.ts
 	- https://stackoverflow.com/questions/55565444/how-to-register-event-with-useeffect-hooks
 
-	Before:
-	
-	const updateMaxHeight = useCallback(() => {
-		if (isExpanded && textContainerRef.current) {
-			const maxHeight = window.innerHeight * (3 / 5)
-			textContainerRef.current.style.maxHeight = `${maxHeight}px`
-		}
-	}, [isExpanded])
-
-	useEffect(() => {
-		updateMaxHeight()
-	}, [isExpanded, updateMaxHeight])
-
-	useEffect(() => {
-		window.removeEventListener("resize", updateMaxHeight)
-		window.addEventListener("resize", updateMaxHeight)
-		return () => {
-			window.removeEventListener("resize", updateMaxHeight)
-		}
-	}, [updateMaxHeight])
-
-	After:
 	*/
 
   const { height: windowHeight, width: windowWidth } = useWindowSize()
@@ -305,34 +283,6 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
           </>
         )}
       </div>
-      {/* {apiProvider === "" && (
-				<div
-					style={{
-						backgroundColor: "color-mix(in srgb, var(--vscode-badge-background) 50%, transparent)",
-						color: "var(--vscode-badge-foreground)",
-						borderRadius: "0 0 3px 3px",
-						display: "flex",
-						justifyContent: "space-between",
-						alignItems: "center",
-						padding: "4px 12px 6px 12px",
-						fontSize: "0.9em",
-						marginLeft: "10px",
-						marginRight: "10px",
-					}}>
-					<div style={{ fontWeight: "500" }}>Credits Remaining:</div>
-					<div>
-						{formatPrice(Credits || 0)}
-						{(Credits || 0) < 1 && (
-							<>
-								{" "}
-								<VSCodeLink style={{ fontSize: "0.9em" }} href={getAddCreditsUrl(vscodeUriScheme)}>
-									(get more?)
-								</VSCodeLink>
-							</>
-						)}
-					</div>
-				</div>
-			)} */}
     </div>
   )
 }
@@ -370,4 +320,4 @@ const ExportButton = () => (
   </div>
 )
 
-export default memo(TaskHeader)
+export default memo(ChatTaskHeader)

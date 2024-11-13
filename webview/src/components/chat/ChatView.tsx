@@ -13,11 +13,11 @@ import { CodeyAsk } from "../../../../src/shared/types"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { vscode } from "../../utils/vscode"
 import HistoryPreview from "../history/HistoryPreview"
-import { normalizeApiConfiguration } from "../settings/ApiOptions"
+import { normalizeApiConfiguration } from "../settings/APIOptions"
 import Announcement from "./Announcement"
 import ChatRow from "./ChatRow"
+import ChatTaskHeader from "./ChatTaskHeader"
 import ChatTextArea from "./ChatTextArea"
-import TaskHeader from "./TaskHeader"
 
 interface ChatViewProps {
   isHidden: boolean
@@ -554,7 +554,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
         overflow: "hidden",
       }}>
       {task ? (
-        <TaskHeader
+        <ChatTaskHeader
           task={task}
           tokensIn={apiMetrics.totalTokensIn}
           tokensOut={apiMetrics.totalTokensOut}
