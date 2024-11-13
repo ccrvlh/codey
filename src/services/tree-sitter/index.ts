@@ -10,11 +10,13 @@ import { LanguageParser, loadRequiredLanguageParsers } from "./parser"
 export async function parseSourceCodeForDefinitionsTopLevel(inputPath: string): Promise<string> {
 	const pathExists = await fileExistsAtPath(path.resolve(inputPath))
 	if (!pathExists) {
+		console.error(`[ERROR] Path does not exist: ${inputPath}`)
 		return "This path does not exist or you do not have permission to access it."
 	}
 
 	const stats = await fs.stat(inputPath)
 	if (!stats.isDirectory() && !stats.isFile()) {
+		console.error(`[ERROR] Path is neither a file nor a directory: ${inputPath}`)
 		return "The provided path is neither a file nor a directory."
 	}
 
@@ -30,9 +32,13 @@ export async function parseSourceCodeForDefinitionsTopLevel(inputPath: string): 
 
 	// Parse specific files we have language parsers for
 	for (const file of filesToParse) {
-		const definitions = await parseFile(file, languageParsers)
-		if (definitions) {
-			result += `${path.relative(path.dirname(inputPath), file).toPosix()}\n${definitions}\n`
+		try {
+			const definitions = await parseFile(file, languageParsers)
+			if (definitions) {
+				result += `${path.relative(path.dirname(inputPath), file).toPosix()}\n${definitions}\n`
+			}
+		} catch (error) {
+			console.error(`[ERROR] Error parsing file ${file}: ${error}`)
 		}
 	}
 	return result ? result : "No source code definitions found."
@@ -102,6 +108,9 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 		// Captures are specific parts of the AST that match our query patterns, each capture represents a node in the AST that we're interested in.
 		const captures = query.captures(tree.rootNode)
 
+		// Log captures for debugging
+		console.debug(`[DEBUG] Captures for file ${filePath}:`, captures)
+
 		// Sort captures by their start position
 		captures.sort((a, b) => a.node.startPosition.row - b.node.startPosition.row)
 
@@ -113,6 +122,9 @@ async function parseFile(filePath: string, languageParsers: LanguageParser): Pro
 
 		captures.forEach((capture) => {
 			const { node, name } = capture
+			// Log each capture for debugging
+			console.debug(`[DEBUG] Capture name: ${name}, Node:`, node)
+
 			// Get the start and end lines of the current AST node
 			const startLine = node.startPosition.row
 			const endLine = node.endPosition.row
