@@ -211,8 +211,26 @@ export class AgentMessageParser {
    */
   static parse(assistantMessage: string) {
     const parser = new AgentMessageParser()
+    let foundToolUse = false
+    let hasContentAfterTool = false
+
     for (let i = 0; i < assistantMessage.length; i++) {
       parser.accumulator += assistantMessage[i]
+
+      if (foundToolUse && !parser.currentToolUse) {
+        hasContentAfterTool = true
+        parser.accumulator = parser.accumulator.slice(0, i)
+        break
+      }
+
+      if (parser.currentToolUse) {
+        foundToolUse = true
+      }
+
+      if (foundToolUse && parser.currentToolUse === undefined) {
+        parser.accumulator = parser.accumulator.slice(0, i)
+        break
+      }
 
       if (parser.currentToolUse && parser.currentParamName) {
         parser.handleParameterParsing()
@@ -228,6 +246,15 @@ export class AgentMessageParser {
     }
 
     parser.finalizePartialContent()
+
+    if (hasContentAfterTool) {
+      parser.contentBlocks.push({
+        type: "text",
+        content: "\n\n[Additional content after tool use was ignored. Only a single tool is allowed per message.]",
+        partial: false
+      })
+    }
+
     return parser.contentBlocks
   }
 }

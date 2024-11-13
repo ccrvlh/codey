@@ -112,11 +112,11 @@ suite('AgentMessageParser Tests', () => {
 
   test('should handle mixed content with text and tool use', () => {
     const message = dedent`Some text before\
-    <read_file>\
-    <path>test.txt </path>\
+      <read_file>\
+      <path>test.txt </path>\
       </read_file>\
       Some text after
-      `;
+    `;
     const result = AgentMessageParser.parse(message);
 
     assert.strictEqual(result.length, 3);
@@ -137,13 +137,12 @@ suite('AgentMessageParser Tests', () => {
     });
     assert.deepStrictEqual(result[2], {
       type: 'text',
-      content: 'Some text after',
-      partial: true
-
+      content: '\n\n[Additional content after tool use was ignored. Only a single tool is allowed per message.]',
+      partial: false
     });
   });
 
-  test('should handle multiple sequential tool uses', () => {
+  test('should ignore multiple sequential tool uses', () => {
     const message = dedent`<read_file>\
       <path>first.txt</path>\
       </read_file>\
@@ -153,7 +152,7 @@ suite('AgentMessageParser Tests', () => {
     `;
     const result = AgentMessageParser.parse(message);
 
-    assert.strictEqual(result.length, 4);
+    assert.strictEqual(result.length, 3);
     assert.deepStrictEqual(result[0], {
       type: 'text',
       content: '',
@@ -171,18 +170,9 @@ suite('AgentMessageParser Tests', () => {
     });
     assert.deepStrictEqual(result[2], {
       type: 'text',
-      content: '',
+      content: '\n\n[Additional content after tool use was ignored. Only a single tool is allowed per message.]',
       partial: false
 
-    });
-    assert.deepStrictEqual(result[3], {
-      type: 'tool_use',
-      name: 'read_file',
-      params: {
-        path: 'second.txt'
-
-      },
-      partial: false
     });
   });
 

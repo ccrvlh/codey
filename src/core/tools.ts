@@ -25,12 +25,14 @@ export class ToolExecutor {
   private cwd: string
   private codey: Agent
   private config: AgentConfig
+  private isExecutingTool: boolean = false
 
   constructor(agent: Agent, config: AgentConfig, cwd: string, diffViewProvider: DiffViewProvider) {
     this.codey = agent
     this.config = config
     this.cwd = cwd
     this.diffViewProvider = diffViewProvider
+    this.isExecutingTool = false
   }
 
   // Privates
@@ -1077,62 +1079,72 @@ export class ToolExecutor {
   // Handle Tool Execution
 
   async handleToolUse(block: ToolUse) {
-    switch (block.name) {
-      case "write_to_file": {
-        console.debug("[DEBUG] Write to file tool called with block:", block)
-        await this.writeToFileTool(block)
-        return
+    if (this.isExecutingTool) {
+      return
+    }
+    this.isExecutingTool = true
+    try {
+      switch (block.name) {
+        case "write_to_file": {
+          console.debug("[DEBUG] Write to file tool called with block:", block)
+          await this.writeToFileTool(block)
+          return
+        }
+        case "read_file": {
+          console.debug("[DEBUG] Read file tool called with block:", block)
+          await this.readFileTool(block)
+          return
+        }
+        case "list_files": {
+          console.debug("[DEBUG] List files tool called with block:", block)
+          await this.listFilesTool(block)
+          return
+        }
+        case "list_code_definition_names": {
+          console.debug("[DEBUG] List code definition names tool called with block:", block)
+          await this.listCodeDefinitionNamesTool(block)
+          return
+        }
+        case "search_files": {
+          console.debug("[DEBUG] Search files tool called with block:", block)
+          await this.searchFilesTool(block)
+          return
+        }
+        case "inspect_site": {
+          console.debug("[DEBUG] Inspect site tool called with block:", block)
+          await this.inspectSizeTool(block)
+          return
+        }
+        case "execute_command": {
+          console.debug("[DEBUG] Execute command tool called with block:", block)
+          await this.executeCommandTool(block)
+          return
+        }
+        case "ask_followup_question": {
+          console.debug("[DEBUG] Ask follow-up question tool called with block:", block)
+          await this.askFollowupQuestionTool(block)
+          return
+        }
+        case "attempt_completion": {
+          console.debug("[DEBUG] Attempt completion tool called with block:", block)
+          await this.attemptCompletionTool(block)
+          return
+        }
+        case "search_replace": {
+          console.debug("[DEBUG] Search and replace tool called with block:", block)
+          await this.searchReplaceTool(block)
+          return
+        }
+        case "insert_code_block": {
+          console.debug("[DEBUG] Insert code block tool called with block:", block)
+          await this.insertCodeBlockTool(block)
+          return
+        }
       }
-      case "read_file": {
-        console.debug("[DEBUG] Read file tool called with block:", block)
-        await this.readFileTool(block)
-        return
-      }
-      case "list_files": {
-        console.debug("[DEBUG] List files tool called with block:", block)
-        await this.listFilesTool(block)
-        return
-      }
-      case "list_code_definition_names": {
-        console.debug("[DEBUG] List code definition names tool called with block:", block)
-        await this.listCodeDefinitionNamesTool(block)
-        return
-      }
-      case "search_files": {
-        console.debug("[DEBUG] Search files tool called with block:", block)
-        await this.searchFilesTool(block)
-        return
-      }
-      case "inspect_site": {
-        console.debug("[DEBUG] Inspect site tool called with block:", block)
-        await this.inspectSizeTool(block)
-        return
-      }
-      case "execute_command": {
-        console.debug("[DEBUG] Execute command tool called with block:", block)
-        await this.executeCommandTool(block)
-        return
-      }
-      case "ask_followup_question": {
-        console.debug("[DEBUG] Ask follow-up question tool called with block:", block)
-        await this.askFollowupQuestionTool(block)
-        return
-      }
-      case "attempt_completion": {
-        console.debug("[DEBUG] Attempt completion tool called with block:", block)
-        await this.attemptCompletionTool(block)
-        return
-      }
-      case "search_replace": {
-        console.debug("[DEBUG] Search and replace tool called with block:", block)
-        await this.searchReplaceTool(block)
-        return
-      }
-      case "insert_code_block": {
-        console.debug("[DEBUG] Insert code block tool called with block:", block)
-        await this.insertCodeBlockTool(block)
-        return
-      }
+    } catch (e) {
+      console.error("[ERROR] Error handling tool use:", e)
+    } finally {
+      this.isExecutingTool = false
     }
   }
 }
