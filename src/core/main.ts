@@ -1362,24 +1362,33 @@ export class Agent {
     }
   }
 
+  /**
+   * Handles the use of a tool block.
+   * 
+   * @param block - The tool use block to handle.
+   * 
+   * This method performs the following actions:
+   * - If the tool has not been rejected, it delegates the handling to the tool executor.
+   * - If the tool has been rejected, it ignores any tool content after the user has rejected the tool once.
+   * - If the block is not partial, it adds a message indicating that the tool is being skipped due to a previous rejection.
+   * - If the block is partial, it adds a message indicating that the tool was interrupted and not executed due to a previous rejection.
+   */
   async handleToolUseBlock(block: ToolUse) {
-    if (this.didRejectTool) {
-      // ignore any tool content after user has rejected tool once
-      if (!block.partial) {
-        this.userMessageContent.push({
-          type: "text",
-          text: `Skipping tool ${this.getToolDescription(block)} due to user rejecting a previous tool.`,
-        })
-      } else {
-        // partial tool after user rejected a previous tool
-        this.userMessageContent.push({
-          type: "text",
-          text: `Tool ${this.getToolDescription(block)} was interrupted and not executed due to user rejecting a previous tool.`,
-        })
-      }
+    if (!this.didRejectTool) {
+      await this.toolExecutor.handleToolUse(block)
       return
     }
 
-    await this.toolExecutor.handleToolUse(block)
+    if (!block.partial) {
+      this.userMessageContent.push({
+        type: "text",
+        text: `Skipping tool ${this.getToolDescription(block)} due to user rejecting a previous tool.`,
+      })
+    }
+
+    this.userMessageContent.push({
+      type: "text",
+      text: `Tool ${this.getToolDescription(block)} was interrupted and not executed due to user rejecting a previous tool.`,
+    })
   }
 }
