@@ -1001,21 +1001,21 @@ export class Agent {
       // so it remains solely for legacy purposes to keep track of prices in tasks from history
       // (it's worth removing a few months from now)
       const updateApiReqMsg = (cancelReason?: APIRequestCancelReason, streamingFailedMessage?: string) => {
+        const calculatedCost = calculateApiCost(
+          this.api.getModel().info,
+          inputTokens,
+          outputTokens,
+          cacheWriteTokens,
+          cacheReadTokens
+        )
+
         this.codeyMessages[lastApiReqIndex].text = JSON.stringify({
           ...JSON.parse(this.codeyMessages[lastApiReqIndex].text || "{}"),
           tokensIn: inputTokens,
           tokensOut: outputTokens,
           cacheWrites: cacheWriteTokens,
           cacheReads: cacheReadTokens,
-          cost:
-            totalCost ??
-            calculateApiCost(
-              this.api.getModel().info,
-              inputTokens,
-              outputTokens,
-              cacheWriteTokens,
-              cacheReadTokens
-            ),
+          cost: totalCost ?? calculatedCost,
           cancelReason,
           streamingFailedMessage,
         } satisfies APIRequestInfo)
