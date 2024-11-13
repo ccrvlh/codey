@@ -25,7 +25,7 @@ import {
   UserResponse
 } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
-import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, UserContent } from "../types"
+import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, toolUseNames, UserContent } from "../types"
 import { GlobalFileNames } from "../utils/const"
 import { ensureTaskDirectoryExists, fileExistsAtPath, getSavedApiConversationHistory } from "../utils/fs"
 import { findLastIndex, timeAgoDescription } from "../utils/helpers"
@@ -1293,52 +1293,73 @@ export class Agent {
     }
   }
 
+  /**
+   * Handles a block of text content, performing various transformations and checks.
+   * 
+   * @param block - The text content block to handle.
+   * @returns A promise that resolves when the handling is complete.
+   * 
+   * @remarks
+   * - If the tool has been rejected (`didRejectTool`), the function returns early.
+   * - If the content is empty, it sends a message with the content.
+   * - Removes `<thinking>` and `</thinking>` tags from the content.
+   * - Checks for potential tool calls in the content and logs a warning if detected.
+   * - Removes any incomplete XML tags at the end of the content.
+   * - Removes end substrings of `<thinking` or `</thinking`.
+   * - Removes all instances of `<thinking>` (with optional line break after) and `</thinking>` (with optional line break before).
+   * - Checks if there's a '>' after the last '<' (i.e., if the tag is complete).
+   * - Extracts the potential tag name.
+   * - Checks if tagContent is likely an incomplete tag name (letters and underscores only).
+   * - Preemptively removes `<` or `</` to keep from these artifacts showing up in chat (also handles closing thinking tags).
+   * - If the tag is incomplete and at the end, removes it from the content.
+   * 
+   * @example
+   * ```typescript
+   * const textBlock: TextContent = { content: "<thinking>example</thinking>", partial: false };
+   * await handleTextBlock(textBlock);
+   * ```
+   */
   async handleTextBlock(block: TextContent) {
     if (this.didRejectTool) {
       return
     }
+
     let content = block.content
-    if (content) {
-      // (have to do this for partial and complete since sending content in thinking tags to markdown renderer will automatically be removed)
-      // Remove end substrings of <thinking or </thinking (below xml parsing is only for opening tags)
-      // (this is done with the xml parsing below now, but keeping here for reference)
-      // content = content.replace(/<\/?t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?$/, "")
-      // Remove all instances of <thinking> (with optional line break after) and </thinking> (with optional line break before)
-      // - Needs to be separate since we dont want to remove the line break before the first tag
-      // - Needs to happen before the xml parsing below
-      content = content.replace(/<thinking>\s?/g, "")
-      content = content.replace(/\s?<\/thinking>/g, "")
-
-      // Remove partial XML tag at the very end of the content (for tool use and thinking tags)
-      // (prevents scrollview from jumping when tags are automatically removed)
-      const lastOpenBracketIndex = content.lastIndexOf("<")
-      if (lastOpenBracketIndex !== -1) {
-
-        // Check if there's a '>' after the last '<' (i.e., if the tag is complete)
-        // complete thinking and tool tags will have been removed by now
-        const possibleTag = content.slice(lastOpenBracketIndex)
-        const hasCloseBracket = possibleTag.includes(">")
-        if (!hasCloseBracket) {
-          // Extract the potential tag name
-          let tagContent: string
-          if (possibleTag.startsWith("</")) {
-            tagContent = possibleTag.slice(2).trim()
-          } else {
-            tagContent = possibleTag.slice(1).trim()
-          }
-
-          // Check if tagContent is likely an incomplete tag name (letters and underscores only)
-          // Preemptively remove < or </ to keep from these artifacts showing up in chat (also handles closing thinking tags)
-          // If the tag is incomplete and at the end, remove it from the content
-          const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
-          const isOpeningOrClosing = possibleTag === "<" || possibleTag === "</"
-          if (isOpeningOrClosing || isLikelyTagName) {
-            content = content.slice(0, lastOpenBracketIndex).trim()
-          }
-        }
-      }
+    if (!content) {
+      return await this.sendMessage("text", content, undefined, block.partial)
     }
-    return await this.sendMessage("text", content, undefined, block.partial)
+
+    content = content.replace(/<thinking>\s?/g, "")
+    content = content.replace(/\s?<\/thinking>/g, "")
+
+    const potentialToolCall = toolUseNames.some(tool => content.includes(`<${tool}>`) || content.includes(`</${tool}>`))
+    if (potentialToolCall) {
+      console.warn(`[WARN] ⚠️ Warning: Detected text that looks like a tool call but wasn't properly parsed. This may indicate a formatting issue:\n\n${content}`)
+    }
+
+    const lastOpenBracketIndex = content.lastIndexOf("<")
+    if (lastOpenBracketIndex == -1) {
+      return
+    }
+
+    const possibleTag = content.slice(lastOpenBracketIndex)
+    const hasCloseBracket = possibleTag.includes(">")
+    if (hasCloseBracket) {
+      return
+    }
+
+    let tagContent: string
+    if (possibleTag.startsWith("</")) {
+      tagContent = possibleTag.slice(2).trim()
+    } else {
+      tagContent = possibleTag.slice(1).trim()
+    }
+
+    const isLikelyTagName = /^[a-zA-Z_]+$/.test(tagContent)
+    const isOpeningOrClosing = possibleTag === "<" || possibleTag === "</"
+    if (isOpeningOrClosing || isLikelyTagName) {
+      content = content.slice(0, lastOpenBracketIndex).trim()
+    }
   }
 
   async handleToolUseBlock(block: ToolUse) {
