@@ -72,13 +72,11 @@ vsce package
 
 Once you do that, you'll have a `codey-x.x.x.vsix` file on the root of the project. You just right click and "Install VSIX" and the little rocket will appear.
 
-````bash
-
 `vsce` is usually global, so you mind need to install it:
 
 ```bash
 npm install -g @vscode/vsce
-````
+```
 
 If you want to run tests:
 
@@ -87,6 +85,14 @@ npm run test
 ```
 
 For now I just added a couple of tests for the message parser, and not for the tools, which is the most important part. I'll be adding more tests as I go.
+
+If you want to fork this and make it your own and manage your own versions, there's a `make` target to make deployment and versioning easier:
+
+```bash
+make deploy
+```
+
+This will increment the version (asking you whether to increase patch/minor/major) and build the project, and then you can just install the VSIX again, it will understand it is a new version and just ask you to refresh the extension.
 
 ---
 
