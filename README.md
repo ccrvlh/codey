@@ -94,6 +94,8 @@ make deploy
 
 This will increment the version (asking you whether to increase patch/minor/major) and build the project, and then you can just install the VSIX again, it will understand it is a new version and just ask you to refresh the extension.
 
+Leaving the original Cline README below for reference.
+
 ---
 
 # Cline (prev. Claude Dev) – \#1 on OpenRouter
@@ -220,9 +222,4 @@ To contribute to the project, start by exploring [open issues](https://github.co
 
 ## License
 
-<<<<<<< Updated upstream
-[Apache 2.0 © 2024 Codey NotInc.](./LICENSE)
-=======
 [Apache 2.0 © 2024 Cline Bot Inc.](./LICENSE)
-
-> > > > > > > Stashed changes
