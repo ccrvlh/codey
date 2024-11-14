@@ -997,6 +997,48 @@ export class Agent {
     yield* iterator
   }
 
+  /**
+   * Recursively makes requests to the Codey API based on user content.
+   * 
+   * This function handles the following:
+   * - Aborts the request if the instance is aborted.
+   * - Handles consecutive mistakes by asking the user for guidance if the mistake count reaches 3.
+   * - Sends a placeholder message with a loading spinner while getting verbose details.
+   * - Loads context and updates the conversation history.
+   * - Updates the placeholder message with the actual request details.
+   * - Handles streaming of API responses, including token usage and cost calculation.
+   * - Truncates the conversation history if needed to free up space for the new request.
+   * - Aborts the stream gracefully if needed, updating the conversation history and saving messages.
+   * - Resets streaming state and handles assistant messages.
+   * - Adds assistant responses to the conversation history and handles tool usage.
+   * - Recursively calls itself to handle subsequent requests.
+   * 
+   * The function ensures that the assistant's response is saved before proceeding to tool use,
+   * and handles various states of the task, including partial messages and user feedback.
+   * 
+   * getting verbose details is an expensive operation, it uses globby to top-down build file structure of project
+   * which for large projects can take a few seconds
+   * for the best UX we show a placeholder api_req_started message with a loading spinner as this happens
+   * 
+   * NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true.
+   * It was due to it not recursively calling for partial blocks when didRejectTool,
+   * so it would get stuck waiting for a partial block to complete before it could continue.
+   * in case the content blocks finished
+   * it may be the api stream finished after the last parsed content block was executed,
+   * so  we are able to detect out of bounds and set userMessageContentReady to true
+   * (note you should not call presentAssistantMessage since if the last block is completed it will be presented again)
+   * const completeBlocks = this.assistantMessageContent.filter((block) => !block.partial) // if there are any partial blocks after the stream ended we can consider them invalid
+   * if (this.currentStreamingContentIndex >= completeBlocks.length) {
+   * 	this.userMessageContentReady = true
+   * }
+   * 
+   * @param userContent - The content provided by the user.
+   * @param includeFileDetails - Whether to include file details in the request. Defaults to false.
+   * @returns A promise that resolves to a boolean indicating whether the loop should end.
+   * 
+   * @throws Error if the Codey instance is aborted.
+   * 
+   */
   async recursivelyMakeCodeyRequests(
     userContent: UserContent,
     includeFileDetails: boolean = false
@@ -1026,12 +1068,7 @@ export class Agent {
       this.consecutiveMistakeCount = 0
     }
 
-    // get previous api req's index to check token usage and determine if we need to truncate conversation history
     const previousApiReqIndex = findLastIndex(this.codeyMessages, (m) => m.say === "api_req_started")
-
-    // getting verbose details is an expensive operation, it uses globby to top-down build file structure of project
-    // which for large projects can take a few seconds
-    // for the best UX we show a placeholder api_req_started message with a loading spinner as this happens
     await this.sendMessage(
       "api_req_started",
       JSON.stringify({
@@ -1045,13 +1082,12 @@ export class Agent {
     userContent.push({ type: "text", text: environmentDetails })
 
     await this.addToApiConversationHistory({ role: "user", content: userContent })
-
-    // since we sent off a placeholder api_req_started message to update the webview while waiting to actually start the API request
-    // (to load potential details for example), we need to update the text of that message
     const lastApiReqIndex = findLastIndex(this.codeyMessages, (m) => m.say === "api_req_started")
+
     this.codeyMessages[lastApiReqIndex].text = JSON.stringify({
       request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n"),
     } satisfies APIRequestInfo)
+
     await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
     await this.providerRef.deref()?.postStateToWebview()
 
@@ -1062,11 +1098,6 @@ export class Agent {
       let outputTokens = 0
       let totalCost: number | undefined
 
-      // update api_req_started. we can't use api_req_finished anymore since it's a unique case where it could come after a streaming message
-      // (ie in the middle of being updated or executed)
-      // fortunately api_req_finished was always parsed out for the gui anyways,
-      // so it remains solely for legacy purposes to keep track of prices in tasks from history
-      // (it's worth removing a few months from now)
       const updateApiReqMsg = (cancelReason?: APIRequestCancelReason, streamingFailedMessage?: string) => {
         const calculatedCost = calculateApiCost(
           this.api.getModel().info,
@@ -1093,17 +1124,12 @@ export class Agent {
           await this.diffViewProvider.revertChanges() // closes diff view
         }
 
-        // if last message is a partial we need to update and save it
         const lastMessage = this.codeyMessages.at(-1)
         if (lastMessage && lastMessage.partial) {
-          // lastMessage.ts = Date.now() DO NOT update ts since it is used as a key for virtuoso list
           lastMessage.partial = false
-          // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
           console.debug("[DEBUG] Updating partial message", lastMessage)
-          // await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
         }
 
-        // Let assistant know their response was interrupted for when task is resumed
         const cancelMessage = cancelReason === "streaming_failed" ? "[Response interrupted by API Error]" : "[Response interrupted by user]"
         await this.addToApiConversationHistory({
           role: "assistant",
@@ -1113,11 +1139,9 @@ export class Agent {
           }],
         })
 
-        // update api_req_started to have cancelled and cost, so that we can display the cost of the partial stream
         updateApiReqMsg(cancelReason, streamingFailedMessage)
         await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
 
-        // signals to provider that it can retrieve the saved messages from disk, as abortTask can not be awaited on in nature
         this.didFinishAborting = true
       }
 
@@ -1132,8 +1156,6 @@ export class Agent {
       this.presentAssistantMessageHasPendingUpdates = false
       await this.diffViewProvider.reset()
 
-      // yields only if the first chunk is successful, otherwise will allow the user to retry the request
-      // (most likely due to rate limit error, which gets thrown on the first chunk)
       const stream = this.attemptApiRequest(previousApiReqIndex)
       let assistantMessage = ""
       try {
@@ -1158,38 +1180,25 @@ export class Agent {
           }
 
           if (this.abort) {
-            console.log("aborting stream...")
+            console.warn("[WARN] Aborting stream...")
             if (!this.abandoned) {
-              // only need to gracefully abort if this instance isn't abandoned (sometimes openrouter stream hangs,
-              // in which case this would affect future instances of codey)
               await abortStream("user_cancelled")
             }
-            break // aborts the stream
+            break
           }
 
           if (this.didRejectTool) {
-            // userContent has a tool rejection, so interrupt the assistant's response to present the user's feedback
             assistantMessage += "\n\n[Response interrupted by user feedback]"
-            // instead of setting this premptively, we allow the present iterator to finish and set userMessageContentReady when its ready
-            // this.userMessageContentReady = true
             break
           }
         }
       } catch (error) {
-        // abandoned happens when extension is no longer waiting for the codey instance to finish aborting
-        // (error is thrown here when any function in the for loop throws due to this.abort)
         if (!this.abandoned) {
-          // if the stream failed, there's various states the task could be in
-          // (i.e. could have streamed some tools the user may have executed), so we just resort to replicating a cancel task
           this.abortTask()
-          await abortStream(
-            "streaming_failed",
-            error.message ?? JSON.stringify(serializeError(error), null, 2)
-          )
+          await abortStream("streaming_failed", error.message ?? JSON.stringify(serializeError(error), null, 2))
           const history = await this.providerRef.deref()?.getTaskWithId(this.taskId)
           if (history) {
             await this.providerRef.deref()?.initCodeyWithHistoryItem(history.historyItem)
-            // await this.providerRef.deref()?.postStateToWebview()
           }
         }
       }
@@ -1200,19 +1209,11 @@ export class Agent {
 
       this.didCompleteReadingStream = true
 
-      // set any blocks to be complete to allow presentAssistantMessage to finish and set userMessageContentReady to true
-      // (could be a text block that had no subsequent tool uses, or a text block at the very end, or an invalid tool use, etc.
-      // whatever the case, presentAssistantMessage relies on these blocks either to be completed
-      // or the user to reject a block in order to proceed and eventually set userMessageContentReady to true)
       const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
       partialBlocks.forEach((block) => {
         block.partial = false
       })
-      // this.assistantMessageContent.forEach((e) => (e.partial = false)) // cant just do this bc a tool could be in the middle of executing ()
       if (partialBlocks.length > 0) {
-        // if there is content to update then it will complete and update this.userMessageContentReady to true,
-        // which we pwaitfor before making the next request.
-        // all this is really doing is presenting the last partial message that we just set to complete
         this.handleAssistantMessage()
       }
 
@@ -1220,9 +1221,6 @@ export class Agent {
       await this.saveCodeyMessages(this.globalStoragePath, this.taskId, this.codeyMessages)
       await this.providerRef.deref()?.postStateToWebview()
 
-      // now add to apiconversationhistory
-      // need to save assistant responses to file before proceeding to tool use since user can exit at any moment
-      // and we wouldn't be able to save the assistant's response
       let didEndLoop = false
       if (assistantMessage.length > 0) {
         await this.addToApiConversationHistory({
@@ -1230,21 +1228,8 @@ export class Agent {
           content: [{ type: "text", text: assistantMessage }],
         })
 
-        // NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true.
-        // It was due to it not recursively calling for partial blocks when didRejectTool,
-        // so it would get stuck waiting for a partial block to complete before it could continue.
-        // in case the content blocks finished
-        // it may be the api stream finished after the last parsed content block was executed,
-        // so  we are able to detect out of bounds and set userMessageContentReady to true
-        // (note you should not call presentAssistantMessage since if the last block is completed it will be presented again)
-        // const completeBlocks = this.assistantMessageContent.filter((block) => !block.partial) // if there are any partial blocks after the stream ended we can consider them invalid
-        // if (this.currentStreamingContentIndex >= completeBlocks.length) {
-        // 	this.userMessageContentReady = true
-        // }
-
         await pWaitFor(() => this.userMessageContentReady)
 
-        // if the model did not tool use, then we need to tell it to either use a tool or attempt_completion
         const didToolUse = this.assistantMessageContent.some((block) => block.type === "tool_use")
         if (!didToolUse) {
           this.userMessageContent.push({
@@ -1257,7 +1242,6 @@ export class Agent {
         const recDidEndLoop = await this.recursivelyMakeCodeyRequests(this.userMessageContent)
         didEndLoop = recDidEndLoop
       } else {
-        // if there's no assistant_responses, that means we got no text or tool_use content blocks from API which we should assume is an error
         await this.sendMessage(
           "error",
           "Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output."
@@ -1267,19 +1251,14 @@ export class Agent {
           content: [{ type: "text", text: "Failure: I did not provide a response." }],
         })
       }
-      // will always be false for now
       return didEndLoop
     } catch (error) {
-      // this should never happen since the only thing that can throw an error is the attemptApiRequest,
-      // which is wrapped in a try catch that sends an ask where if noButtonClicked,
-      // will clear current task and destroy this instance.
-      // However to avoid unhandled promise rejection,
-      // we will end this loop which will end execution of this instance (see startTask)
-      return true // needs to be true so parent loop knows to end task
+      return true
     }
   }
 
   // Main
+
   /**
    * Processes the assistant's message content block by block.
    * 
