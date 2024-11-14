@@ -8,12 +8,6 @@
 <table>
 <tbody>
 <td align="center">
-<a href="https://marketplace.visualstudio.com/items?itemName=ccrvlh.codey" target="_blank"><strong>Download on VS Marketplace</strong></a>
-</td>
-<td align="center">
-<a href="https://discord.gg/codey" target="_blank"><strong>Join the Discord</strong></a>
-</td>
-<td align="center">
 <a href="https://github.com/ccrvlh/codey/wiki" target="_blank"><strong>Docs</strong></a>
 </td>
 <td align="center">
@@ -122,4 +116,4 @@ To contribute to the project, start by exploring [open issues](https://github.co
 
 ## License
 
-[Apache 2.0 © 2024 Codey Bot Inc.](./LICENSE)
+[Apache 2.0 © 2024 Codey NotInc.](./LICENSE)
