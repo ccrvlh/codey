@@ -945,17 +945,25 @@ export class Agent {
     ])
   }
 
+  /**
+   * Attempts to make an API request and handle the response as an asynchronous iterable stream.
+   * If the previous API request's token usage is close to the context window limit, it truncates
+   * the conversation history to free up space for the new request.
+   * 
+   * If the API request fails on the first chunk, it prompts the user to retry the request.
+   * This will be handled differently (`api_req_falied`) as it asks the user to retry the request.
+   * 
+   * @param previousApiReqIndex - The index of the previous API request in the conversation history.
+   * @yields {APIStream} - An asynchronous iterable stream of API response chunks.
+   * @throws {Error} - Throws an error if the API request fails on the first chunk and the user does not choose to retry.
+   */
   async * attemptApiRequest(previousApiReqIndex: number): APIStream {
     const supportsImages = this.api.getModel().info.supportsImages ?? false
     let systemPrompt = SYSTEM_PROMPT(this.cwd, supportsImages)
     if (this.config.customInstructions && this.config.customInstructions.trim()) {
-      // altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often
-      // so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
       systemPrompt += CUSTOM_USER_INSTRUCTIONS(this.config.customInstructions)
     }
 
-    // If the previous API request's total token usage is close to the context window,
-    // truncate the conversation history to free up space for the new request
     if (previousApiReqIndex >= 0) {
       const previousRequest = this.codeyMessages[previousApiReqIndex]
       if (previousRequest && previousRequest.text) {
@@ -974,34 +982,18 @@ export class Agent {
     const iterator = stream[Symbol.asyncIterator]()
 
     try {
-      // awaiting first chunk to see if it will throw an error
       const firstChunk = await iterator.next()
       yield firstChunk.value
     } catch (error) {
-      // note that this api_req_failed ask is unique in that we only present this option if the api hasn't streamed any content yet
-      // (ie it fails on the first chunk due), as it would allow them to hit a retry button.
-      // However if the api failed mid-stream, it could be in any arbitrary state where some tools may have executed,
-      // so that error is handled differently and requires cancelling the task entirely.
-      const { response } = await this.askUser(
-        "api_req_failed",
-        error.message ?? JSON.stringify(serializeError(error), null, 2)
-      )
+      const { response } = await this.askUser("api_req_failed", error.message ?? JSON.stringify(serializeError(error), null, 2))
       if (response !== "yesButtonClicked") {
-        // this will never happen since if noButtonClicked, we will clear current task, aborting this instance
         throw new Error("API request failed")
       }
       await this.sendMessage("api_req_retried")
-      // delegate generator output from the recursive call
       yield* this.attemptApiRequest(previousApiReqIndex)
       return
     }
 
-    // no error, so we can continue to yield all remaining chunks
-    // (needs to be placed outside of try/catch since it we want caller to handle errors not with api_req_failed
-    // as that is reserved for first chunk failures only)
-    // this delegates to another generator or iterable object.
-    // In this case, it's saying "yield all remaining values from this iterator".
-    // This effectively passes along all subsequent chunks from the original stream.
     yield* iterator
   }
 
