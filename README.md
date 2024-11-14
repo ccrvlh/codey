@@ -7,13 +7,13 @@ This is a very simple fork from Cline (prev. Claude Dev).
 
 ## Motivation
 
-Cline is amazing - the experince within the IDE, the robustness when keeping conversation threads consistent, the feedback loop, etc. However, my experience on using it in "real life" projects, has been less then ideal. It's mean approach to interact with existing code is full file rewrites. That means:
+Cline is amazing - the experince within the IDE, the robustness when keeping conversation threads consistent, the feedback loop, etc. However, my experience on using it in "real life" projects, has been less then ideal. It's main approach to interact with existing code is full file rewrites. That means:
 
-(1) Slow: for anything over 100-200 lines, you need to wait for the LLM to rewrite the whole file when all it needed was adding a line. Not only that it would only read full files (which is also slow).
+(1) Slow: for anything over 100-200 lines, you need to wait for the LLM to rewrite the whole file when all it needed was adding a line. You are also stuck with reading full files (which is also slow) or not reading them at all.
 
-(2) Expensive: because it always needs to rewrite the whole file, you are paying for all tokens within the file, when all you needed was one.
+(2) Expensive: because it always needs to rewrite the whole file, you are paying for all tokens within the file, when all you needed was one. Same thing goes when reading files, you are paying for all tokens, when all you needed was a small part of it for the LLM to understand the context.
 
-(3) Error Prone: when it handles existing production code, most of the code already works, and Cline was constantly breaking things, requiring manual intervention.
+(3) Error Prone: when it handles existing production code, most of the code already works, and Cline was constantly breaking things, requiring manual intervention. Some custom instructions helped, but at the end, I wasn't to prevent it from changing things
 
 At the end of the day, I wasn't able to be productive with it, my Anthropic bill sky rocketed, was constantly reaching API limits, and wasn't getting much done.
 
