@@ -1280,7 +1280,27 @@ export class Agent {
   }
 
   // Main
-
+  /**
+   * Processes the assistant's message content block by block.
+   * 
+   * If the instance is aborted, it throws an error.
+   * If the message presentation is locked, it sets a flag indicating there are pending updates and returns.
+   * Otherwise, it locks the message presentation and resets the pending updates flag.
+   * 
+   * If the current content index is out of bounds and streaming is complete, it sets the user message content ready flag.
+   * 
+   * Creates a deep copy of the current content block to avoid reference issues during streaming.
+   * Processes the content block based on its type (text or tool_use).
+   * 
+   * Unlocks the message presentation.
+   * 
+   * If the content block is not partial or a tool was rejected, it handles the completion of the content block streaming and execution.
+   * Increments the content index and calls the method recursively if there are more content blocks to process.
+   * 
+   * If there are pending updates and the content block is partial, it calls the method recursively.
+   * 
+   * @throws {Error} If the Codey instance is aborted.
+   */
   async handleAssistantMessage() {
     if (this.abort) {
       throw new Error("Codey instance aborted")
@@ -1295,9 +1315,6 @@ export class Agent {
     this.presentAssistantMessageHasPendingUpdates = false
 
     if (this.currentStreamingContentIndex >= this.assistantMessageContent.length) {
-      // this may happen if the last content block was completed before streaming could finish.
-      // if streaming is finished, and we're out of bounds then this means we already presented/executed
-      // the last content block and are ready to continue to next request
       if (this.didCompleteReadingStream) {
         this.userMessageContentReady = true
       }
@@ -1305,7 +1322,6 @@ export class Agent {
       return
     }
 
-    // need to create copy bc while stream is updating the array, it could be updating the reference block properties too
     const block = cloneDeep(this.assistantMessageContent[this.currentStreamingContentIndex])
     switch (block.type) {
       case "text": {
@@ -1317,39 +1333,19 @@ export class Agent {
         break
     }
 
-    /*
-    Seeing out of bounds is fine, it means that the next too call is being built up and ready to add to assistantMessageContent to present. 
-    When you see the UI inactive during this, it means that a tool is breaking without presenting any UI.
-    For example the write_to_file tool was breaking when relpath was undefined, and for invalid relpath it never presented UI.
-    This needs to be placed here, if not then calling this.presentAssistantMessage below would fail (sometimes) since it's locked
-    */
     this.presentAssistantMessageLocked = false
-    // NOTE: when tool is rejected, iterator stream is interrupted and it waits for userMessageContentReady to be true.
-    // Future calls to present will skip execution since didRejectTool and iterate until contentIndex is set to message
-    // length and it sets userMessageContentReady to true itself (instead of preemptively doing it in iterator)
     if (!block.partial || this.didRejectTool) {
-      // block is finished streaming and executing
       if (this.currentStreamingContentIndex === this.assistantMessageContent.length - 1) {
-        // its okay that we increment if !didCompleteReadingStream, it'll just return
-        // bc out of bounds and as streaming continues it will call presentAssitantMessage if a new block is ready.
-        // if streaming is finished then we set userMessageContentReady to true when out of bounds.
-        // This gracefully allows the stream to continue on and all potential content blocks be presented.
-        // last block is complete and it is finished executing
-        this.userMessageContentReady = true // will allow pwaitfor to continue
+        this.userMessageContentReady = true
       }
 
-      // call next block if it exists (if not then read stream will call it when its ready)
-      // need to increment regardless, so when read stream calls this function again it will be streaming the next block
       this.currentStreamingContentIndex++
-
       if (this.currentStreamingContentIndex < this.assistantMessageContent.length) {
-        // there are already more content blocks to stream, so we'll call this function ourselves
-        // await this.presentAssistantContent()
         this.handleAssistantMessage()
         return
       }
     }
-    // block is partial, but the read stream may have finished
+
     if (this.presentAssistantMessageHasPendingUpdates) {
       this.handleAssistantMessage()
     }
