@@ -52,6 +52,38 @@ Still need to spend more time with other models both closed and open ones to see
 
 At this point, the code base is just too different, so won't be able to merge back to Cline, or merge from Cline, I'd be happy to share changes and contribute if anyone think it would be worth it. I haven't added anything related to the computer use capabilities, since I don't use it, but I'm happy to add it if someone wants to use it.
 
+## Installation
+
+I had to change the name and the logo to be able to have this and Cline at the same time, the idea is _not_ to build a parallel project, and I'd still encourage everyone to keep using Cline, so I won't be publishing this to the marketplace. However, if you want to test it locally you just need to clone the repo, build the package and install the VSIX:
+
+```bash
+# Clone the repo
+git clone https://github.com/ccrvlh/codey
+
+# Cd into the folder
+cd codey
+
+# Install deps
+npm install
+
+# Build the package
+vsce package
+```
+
+`vsce` is usually global, so you mind need to install it:
+
+```bash
+npm install -g @vscode/vsce
+```
+
+If you want to run tests:
+
+```bash
+npm run test
+```
+
+For now I just added a couple of tests for the message parser, and not for the tools, which is the most important part. I'll be adding more tests as I go.
+
 ---
 
 # Cline (prev. Claude Dev) – \#1 on OpenRouter
