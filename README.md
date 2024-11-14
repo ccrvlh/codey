@@ -70,11 +70,15 @@ npm install
 vsce package
 ```
 
+Once you do that, you'll have a `codey-x.x.x.vsix` file on the root of the project. You just right click and "Install VSIX" and the little rocket will appear.
+
+````bash
+
 `vsce` is usually global, so you mind need to install it:
 
 ```bash
 npm install -g @vscode/vsce
-```
+````
 
 If you want to run tests:
 
