@@ -46,7 +46,6 @@ export const responseTemplates = {
     if (images && images.length > 0) {
       const textBlock: Anthropic.TextBlockParam = { type: "text", text }
       const imageBlocks: Anthropic.ImageBlockParam[] = formatImagesIntoBlocks(images)
-      // Placing images after text leads to better results
       return [textBlock, ...imageBlocks]
     } else {
       return text
@@ -116,36 +115,36 @@ export const responseTemplates = {
 const formatImagesIntoBlocks = (images?: string[]): Anthropic.ImageBlockParam[] => {
   return images
     ? images.map((dataUrl) => {
-      const [rest, base64] = dataUrl.split(",")
-      const mimeType = rest.split(":")[1].split(";")[0]
-      return {
-        type: "image",
-        source: { type: "base64", media_type: mimeType, data: base64 },
-      } as Anthropic.ImageBlockParam
-    })
+        const [rest, base64] = dataUrl.split(",")
+        const mimeType = rest.split(":")[1].split(";")[0]
+        return {
+          type: "image",
+          source: { type: "base64", media_type: mimeType, data: base64 },
+        } as Anthropic.ImageBlockParam
+      })
     : []
 }
 
 /**
  * Truncates a conversation to fit within context limits by removing a portion of the messages.
- * 
+ *
  * This function is designed to maintain the benefits of caching by keeping the conversation history static.
  * It should be called only when absolutely necessary to fit within context limits, not as a continuous process.
- * 
+ *
  * The API expects messages to be in user-assistant order, and tool use messages must be followed by tool results.
  * This function maintains this structure while truncating.
- * 
+ *
  * We can't implement a dynamically updating sliding window as it would break prompt cache
  * every time. To maintain the benefits of caching, we need to keep conversation history
  * static. This operation should be performed as infrequently as possible. If a user reaches
  * a 200k context, we can assume that the first half is likely irrelevant to their current task.
  * Therefore, this function should only be called when absolutely necessary to fit within
  * context limits, not as a continuous process.
- * 
+ *
  * Always keep the first Task message (this includes the project's file structure in environment_details).
- * 
+ *
  * API expects messages to be in user-assistant order, and tool use messages must be followed by tool results. We need to maintain this structure while truncating.
- * 
+ *
  * @param messages - An array of message parameters to be truncated.
  * @returns An array of truncated message parameters.
  */
