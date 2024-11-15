@@ -353,6 +353,13 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             }
             await this.postStateToWebview()
             break
+          case "exportIncludesSystemPrompt":
+            await this.updateGlobalState("exportIncludesSystemPrompt", message.bool ?? undefined)
+            if (this.agent) {
+              this.agent.config.alwaysAllowReadOnly = message.bool ?? false
+            }
+            await this.postStateToWebview()
+            break
           case "editAutoScroll":
             await this.updateGlobalState("editAutoScroll", message.bool ?? undefined)
             if (this.agent) {
@@ -642,12 +649,12 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 
   async exportTaskWithId(id: string) {
     const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-    await downloadTask(historyItem, apiConversationHistory)
+    await downloadTask(historyItem, apiConversationHistory, this.agent?.config.exportIncludesSystemPrompt)
   }
 
   async exportTaskDebug(id: string) {
     const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-    await downloadTaskDebug(historyItem, apiConversationHistory)
+    await downloadTaskDebug(historyItem, apiConversationHistory, this.agent?.config.exportIncludesSystemPrompt)
   }
 
   async deleteTaskWithId(id: string) {

@@ -1,8 +1,10 @@
-import { Anthropic } from "@anthropic-ai/sdk"
-import os from "os"
-import * as path from "path"
-import * as vscode from "vscode"
-import { HistoryItem } from "../../shared/interfaces"
+import { SYSTEM_PROMPT } from "../../core/prompts";
+
+import { Anthropic } from "@anthropic-ai/sdk";
+import os from "os";
+import * as path from "path";
+import * as vscode from "vscode";
+import { HistoryItem } from "../../shared/interfaces";
 
 
 function generateFileName(history: HistoryItem, debug: boolean = false) {
@@ -23,28 +25,32 @@ function generateFileName(history: HistoryItem, debug: boolean = false) {
  * @param history The task history item.
  * @param conversationHistory The conversation history of the task.
  */
-export async function downloadTask(history: HistoryItem, conversationHistory: Anthropic.MessageParam[]) {
-	const fileName = generateFileName(history, false)
-	const markdownContent = conversationHistory
+export async function downloadTask(history: HistoryItem, conversationHistory: Anthropic.MessageParam[], includeSystemPrompt: boolean = false) {
+	const fileName = generateFileName(history, false);
+	let markdownContent = conversationHistory
 		.map((message) => {
-			const role = message.role === "user" ? "**User:**" : "**Assistant:**"
+			const role = message.role === "user" ? "**User:**" : "**Assistant:**";
 			const content = Array.isArray(message.content)
 				? message.content.map((block) => formatContentBlockToMarkdown(block)).join("\n")
-				: message.content
-			return `${role}\n\n${content}\n\n`
+				: message.content;
+			return `${role}\n\n${content}\n\n`;
 		})
-		.join("---\n\n")
+		.join("---\n\n");
 
+	if (includeSystemPrompt) {
+		const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? process.cwd()
+		const systemPrompt = SYSTEM_PROMPT(cwd, false);
+		markdownContent = `${systemPrompt}\n\n${markdownContent}`;
+	}
 
 	const saveUri = await vscode.window.showSaveDialog({
 		filters: { Markdown: ["md"] },
 		defaultUri: vscode.Uri.file(path.join(os.homedir(), "Downloads", fileName)),
-	})
+	});
 
 	if (saveUri) {
-		// Write content to the selected location
-		await vscode.workspace.fs.writeFile(saveUri, new Uint8Array(Buffer.from(markdownContent)))
-		vscode.window.showTextDocument(saveUri, { preview: true })
+		await vscode.workspace.fs.writeFile(saveUri, new Uint8Array(Buffer.from(markdownContent)));
+		vscode.window.showTextDocument(saveUri, { preview: true });
 	}
 }
 
@@ -54,9 +60,21 @@ export async function downloadTask(history: HistoryItem, conversationHistory: An
  * @param history The task history item.
  * @param conversationHistory The conversation history of the task.
  */
-export async function downloadTaskDebug(history: HistoryItem, conversationHistory: Anthropic.MessageParam[]) {
+export async function downloadTaskDebug(history: HistoryItem, conversationHistory: Anthropic.MessageParam[], includeSystemPrompt: boolean = false) {
 	const fileName = generateFileName(history, true)
-	const jsonContent = JSON.stringify(conversationHistory, null, 2)
+	const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? process.cwd()
+	const systemPrompt = SYSTEM_PROMPT(cwd, false);
+	const exportHistory = conversationHistory
+
+	if (includeSystemPrompt) {
+		exportHistory.unshift({
+			// @ts-ignore
+			role: "system",
+			content: systemPrompt,
+		});
+	}
+
+	const jsonContent = JSON.stringify(exportHistory, null, 2)
 	const saveUri = await vscode.window.showSaveDialog({
 		filters: { JSON: ["json"] },
 		defaultUri: vscode.Uri.file(path.join(os.homedir(), "Downloads", fileName)),

@@ -11,6 +11,7 @@ interface ConfigContextType extends AgentConfig {
   setDirectoryContextMode: (value: "files" | "tree") => void
   setDirectoryContextMaxLines: (value: number) => void
   setMaxMistakeLimit: (value: number) => void
+  setExportIncludesSystemPrompt: (value: boolean) => void
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined)
@@ -25,6 +26,7 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
     directoryContextMode: "files",
     directoryContextMaxLines: 200,
     maxMistakeLimit: 3,
+    exportIncludesSystemPrompt: false,
   })
 
   // Listen for state updates from the extension
@@ -42,6 +44,7 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
           directoryContextMode: message.state.directoryContextMode ?? "files",
           directoryContextMaxLines: message.state.directoryContextMaxLines ?? 200,
           maxMistakeLimit: message.state.maxMistakeLimit ?? 3,
+          exportIncludesSystemPrompt: message.state.exportIncludesSystemPrompt ?? false,
         }))
       }
     }
@@ -63,6 +66,13 @@ export const ConfigContextProvider: React.FC<{ children: React.ReactNode }> = ({
       setConfig((prev) => ({ ...prev, alwaysAllowReadOnly: value }))
       vscode.postMessage({
         type: "alwaysAllowReadOnly",
+        bool: value,
+      })
+    },
+    setExportIncludesSystemPrompt: (value) => {
+      setConfig((prev) => ({ ...prev, exportIncludesSystemPrompt: value }))
+      vscode.postMessage({
+        type: "exportIncludesSystemPrompt",
         bool: value,
       })
     },

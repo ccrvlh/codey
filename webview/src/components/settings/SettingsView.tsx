@@ -144,6 +144,23 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
         </div>
 
         <div style={{ marginBottom: 5 }}>
+          <VSCodeCheckbox
+            checked={config.exportIncludesSystemPrompt}
+            onChange={(e: any) => config.setExportIncludesSystemPrompt(e.target.checked)}>
+            <span style={{ fontWeight: "500" }}>Include System Prompt on Task Export</span>
+          </VSCodeCheckbox>
+          <p
+            style={{
+              fontSize: "12px",
+              marginTop: "5px",
+              color: "var(--vscode-descriptionForeground)",
+            }}>
+            When enabled, the system prompt is going to be included in the exported task. This is useful for sharing
+            tasks with others, or testing tasks in APIs directly.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: 5 }}>
           <VSCodeTextArea
             value={config.maxFileLineThreshold?.toString() ?? ""}
             style={{ width: "100%" }}
