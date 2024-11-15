@@ -149,3 +149,4 @@ export type GlobalStateKey =
   | "directoryContextMode"
   | "directoryContextMaxLines"
   | "maxMistakeLimit"
+  | "exportIncludesSystemPrompt"

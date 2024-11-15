@@ -102,3 +102,4 @@ export type WebviewMessageType =
   | "directoryContextMode"
   | "directoryContextMaxLines"
   | "maxMistakeLimit"
+  | "exportIncludesSystemPrompt"

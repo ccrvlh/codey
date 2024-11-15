@@ -10,6 +10,7 @@ export interface AgentConfig {
   directoryContextMode: "files" | "tree"
   directoryContextMaxLines: number
   maxMistakeLimit: number
+  exportIncludesSystemPrompt: boolean
 }
 
 export class ConfigManager {
@@ -25,6 +26,7 @@ export class ConfigManager {
       directoryContextMode,
       directoryContextMaxLines,
       maxMistakeLimit,
+      exportIncludesSystemPrompt,
     ] = await Promise.all([
       this.getGlobalState("customInstructions") as Promise<string | undefined>,
       this.getGlobalState("alwaysAllowReadOnly") as Promise<boolean | undefined>,
@@ -34,6 +36,7 @@ export class ConfigManager {
       this.getGlobalState("directoryContextMode") as Promise<"files" | "tree" | undefined>,
       this.getGlobalState("directoryContextMaxLines") as Promise<number | undefined>,
       this.getGlobalState("maxMistakeLimit") as Promise<number | undefined>,
+      this.getGlobalState("exportIncludesSystemPrompt") as Promise<boolean | undefined>,
     ])
 
     return {
@@ -45,6 +48,7 @@ export class ConfigManager {
       directoryContextMode: directoryContextMode ?? "files",
       directoryContextMaxLines: directoryContextMaxLines ?? 200,
       maxMistakeLimit: maxMistakeLimit ?? 3,
+      exportIncludesSystemPrompt: exportIncludesSystemPrompt ?? false,
     }
   }
 
