@@ -1161,6 +1161,7 @@ export class Agent {
       this.presentAssistantMessageHasPendingUpdates = false
       await this.diffViewProvider.reset()
 
+      console.debug("[DEBUG] Starting API request...")
       const stream = this.attemptApiRequest(previousApiReqIndex)
       let assistantMessage = ""
       try {
@@ -1212,6 +1213,7 @@ export class Agent {
         throw new Error("Codey instance aborted")
       }
 
+      console.debug("[DEBUG] Stream completed.")
       this.didCompleteReadingStream = true
 
       const partialBlocks = this.assistantMessageContent.filter((block) => block.partial)
@@ -1219,6 +1221,7 @@ export class Agent {
         block.partial = false
       })
       if (partialBlocks.length > 0) {
+        console.debug("[DEBUG] Detected remaining partial blocks.")
         this.handleAssistantMessage()
       }
 
@@ -1227,26 +1230,8 @@ export class Agent {
       await this.providerRef.deref()?.postStateToWebview()
 
       let didEndLoop = false
-      if (assistantMessage.length > 0) {
-        await this.addToApiConversationHistory({
-          role: "assistant",
-          content: [{ type: "text", text: assistantMessage }],
-        })
-
-        await pWaitFor(() => this.userMessageContentReady)
-
-        const didToolUse = this.assistantMessageContent.some((block) => block.type === "tool_use")
-        if (!didToolUse) {
-          this.userMessageContent.push({
-            type: "text",
-            text: responseTemplates.noToolsUsed(),
-          })
-          this.consecutiveMistakeCount++
-        }
-
-        const recDidEndLoop = await this.recursivelyMakeCodeyRequests(this.userMessageContent)
-        didEndLoop = recDidEndLoop
-      } else {
+      if (assistantMessage.length <= 0) {
+        console.error("[ERROR] Unexpected API Response: The language model did not provide any assistant messages.")
         await this.sendMessage(
           "error",
           "Unexpected API Response: The language model did not provide any assistant messages. This may indicate an issue with the API or the model's output."
@@ -1255,7 +1240,29 @@ export class Agent {
           role: "assistant",
           content: [{ type: "text", text: "Failure: I did not provide a response." }],
         })
+        return didEndLoop
       }
+
+      await this.addToApiConversationHistory({
+        role: "assistant",
+        content: [{ type: "text", text: assistantMessage }],
+      })
+
+      console.debug("[DEBUG] Assistant message added to thread, waiting for user...")
+      await pWaitFor(() => this.userMessageContentReady)
+
+      const didToolUse = this.assistantMessageContent.some((block) => block.type === "tool_use")
+      if (!didToolUse) {
+        console.debug("[DEBUG] No tool use was identified.")
+        this.userMessageContent.push({
+          type: "text",
+          text: responseTemplates.noToolsUsed(),
+        })
+        this.consecutiveMistakeCount++
+      }
+
+      const recDidEndLoop = await this.recursivelyMakeCodeyRequests(this.userMessageContent)
+      didEndLoop = recDidEndLoop
       return didEndLoop
     } catch (error) {
       return true
