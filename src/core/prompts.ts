@@ -216,7 +216,7 @@ const READ_FILE_TOOL = (cwd: string) => dedent`
 
 const INSERT_CODE_BLOCK_TOOL = (cwd: string) => dedent`
   ## insert_code_block
-  Description: Inserts a block of code at a specific line position in a file. This is primary tool for adding new functionality (adding new functions/methods/classes, adding imports, adding attributes etc.), it allows for precise insertion of code without overwriting the entire file. Beware to use the proper identation.
+  Description: Inserts one or more lines of code starting at a specific line position in a file. This is primary tool for adding new code (adding new functions/methods/classes, adding imports, adding attributes etc.), it allows for precise insertion of code without overwriting the entire file. Beware to use the proper identation. This tool is the preferred way to add new code to files.
   Parameters:
   - path: (required) The path of the file to insert code into (relative to the current working directory ${cwd.toPosix()})
   - position: (required) The line number where the code block should be inserted
@@ -234,7 +234,7 @@ const INSERT_CODE_BLOCK_TOOL = (cwd: string) => dedent`
 const SEARCH_REPLACE_TOOL = (cwd: string) => dedent`
   ## search_replace
   Description: Request to replace existing code using search and replace blocks. This tool allows for precise, surgical replaces to files by specifying exactly what content to search for and what to replace it with.
-  Only use this tool when you need to replace/fix existing functions/methods/attributes/etc. If you are just adding code, use the insert_code_block tool.
+  Only use this tool when you need to replace/fix existing code. If you are just adding new code, use the insert_code_block tool.
   The tool will maintain proper indentation and formatting while making changes. Only a single operation is allowed per tool use.
   The SEARCH section must exactly match existing content including whitespace and indentation.
   Parameters:
