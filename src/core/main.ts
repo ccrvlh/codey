@@ -618,10 +618,9 @@ export class Agent {
     newUserContent.push({
       type: "text",
       text:
-        `[TASK RESUMPTION] This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${this.cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry.${
-          wasRecent
-            ? "\n\nIMPORTANT: If the last tool use was a write_to_file that was interrupted, the file was reverted back to its original state before the interrupted edit, and you do NOT need to re-read the file as you already have its up-to-date contents."
-            : ""
+        `[TASK RESUMPTION] This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${this.cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry.${wasRecent
+          ? "\n\nIMPORTANT: If the last tool use was a write_to_file that was interrupted, the file was reverted back to its original state before the interrupted edit, and you do NOT need to re-read the file as you already have its up-to-date contents."
+          : ""
         }` +
         (responseText
           ? `\n\nNew instructions for task continuation:\n<user_message>\n${responseText}\n</user_message>`
@@ -699,9 +698,8 @@ export class Agent {
       case "write_to_file":
         return `[${block.name} for '${block.params.path}']`
       case "search_files":
-        return `[${block.name} for '${block.params.regex}'${
-          block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""
-        }]`
+        return `[${block.name} for '${block.params.regex}'${block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""
+          }]`
       case "list_files":
         return `[${block.name} for '${block.params.path}']`
       case "list_code_definition_names":
@@ -778,8 +776,7 @@ export class Agent {
       return [
         true,
         responseTemplates.toolResult(
-          `Command is still running in the user's terminal.${
-            result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
+          `Command is still running in the user's terminal.${result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
           }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
           userFeedback.images
         ),
@@ -789,8 +786,7 @@ export class Agent {
     if (!completed) {
       return [
         false,
-        `Command is still running in the user's terminal.${
-          result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
+        `Command is still running in the user's terminal.${result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
         }\n\nYou will be updated on the terminal status and new output in the future.`,
       ]
     }
@@ -842,7 +838,7 @@ export class Agent {
       await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
         interval: 100,
         timeout: 15_000,
-      }).catch(() => {})
+      }).catch(() => { })
     }
 
     // reset, this lets us know when to wait for saved files to update terminals
@@ -1409,17 +1405,8 @@ export class Agent {
    * - If the block is partial, it adds a message indicating that the tool was interrupted and not executed due to a previous rejection.
    */
   async handleToolUseBlock(block: ToolUse) {
-    if (this.didExecuteTool) {
-      this.userMessageContent.push({
-        type: "text",
-        text: `Additional content after tool use was ignored. Only a single tool is allowed per message.`,
-      })
-      return
-    }
-
     if (!this.didRejectTool) {
       await this.toolExecutor.handleToolUse(block)
-      this.didExecuteTool = true
       return
     }
 
