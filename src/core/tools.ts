@@ -689,7 +689,7 @@ export class ToolExecutor {
       toolResults.push(...responseTemplates.imageBlocks(images))
       this.codey.userMessageContent.push({
         type: "text",
-        text: `$getToolDescription(block)} Result:`,
+        text: `${this.codey.getToolDescription(block)} Result:`,
       })
       this.codey.userMessageContent.push(...toolResults)
 
