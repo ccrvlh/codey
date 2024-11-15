@@ -616,27 +616,33 @@ export class ViewProvider implements vscode.WebviewViewProvider {
   }> {
     const history = ((await this.getGlobalState("taskHistory")) as HistoryItem[] | undefined) || []
     const historyItem = history.find((item) => item.id === id)
-    if (historyItem) {
-      const taskDirPath = path.join(this.context.globalStorageUri.fsPath, "tasks", id)
-      const apiConversationHistoryFilePath = path.join(taskDirPath, GlobalFileNames.apiConversationHistory)
-      const uiMessagesFilePath = path.join(taskDirPath, GlobalFileNames.uiMessages)
-      const fileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
-      if (fileExists) {
-        const apiConversationHistory = JSON.parse(await fs.readFile(apiConversationHistoryFilePath, "utf8"))
-        return {
-          historyItem,
-          taskDirPath,
-          apiConversationHistoryFilePath,
-          uiMessagesFilePath,
-          apiConversationHistory,
-        }
-      }
+    if (!historyItem) {
+      await this.deleteTaskFromState(id)
+      console.error("[ERROR] Task not found.")
+      throw new Error("Task not found")
     }
-    // if we tried to get a task that doesn't exist, remove it from state
-    // FIXME: this seems to happen sometimes when the json file doesnt save to disk for some reason
-    await this.deleteTaskFromState(id)
-    throw new Error("Task not found")
+
+    const taskDirPath = path.join(this.context.globalStorageUri.fsPath, "tasks", id)
+    const apiConversationHistoryFilePath = path.join(taskDirPath, GlobalFileNames.apiConversationHistory)
+    const uiMessagesFilePath = path.join(taskDirPath, GlobalFileNames.uiMessages)
+    const fileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
+    if (!fileExists) {
+      await this.deleteTaskFromState(id)
+      console.error("[ERROR] Task file not found")
+      throw new Error("Task file not found")
+    }
+
+    const apiConversationHistory = JSON.parse(await fs.readFile(apiConversationHistoryFilePath, "utf8"))
+    return {
+      historyItem,
+      taskDirPath,
+      apiConversationHistoryFilePath,
+      uiMessagesFilePath,
+      apiConversationHistory,
+    }
   }
+
+
 
   async showTaskWithId(id: string) {
     if (id !== this.agent?.taskId) {
