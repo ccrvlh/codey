@@ -910,7 +910,7 @@ export class ToolExecutor {
   }
 
   async insertCodeBlockTool(block: ToolUse) {
-    console.debug("insertCodeBlockTool called with block:", block)
+    if (!block.partial) console.debug("[DEBUG] Running insertCodeBlockTool")
     const relPath: string | undefined = block.params.path
     const position: string | undefined = block.params.position
     const content: string | undefined = block.params.content
@@ -921,16 +921,14 @@ export class ToolExecutor {
     }
 
     if (!content) {
-      console.debug("Content is missing.")
+      console.debug("[DEBUG] Content is missing.")
       return
     }
 
     const newContent = this.cleanUpContent(content)
-    console.debug("Cleaned up content:", newContent)
 
     try {
       if (block.partial) {
-        console.debug("Block is partial, sending partial message.")
         const partialMessage = JSON.stringify(sharedMessageProps)
         await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {
           console.debug("Partial message ask failed.")
@@ -966,14 +964,12 @@ export class ToolExecutor {
       const fileContent = await fs.readFile(absolutePath, "utf8")
       this.diffViewProvider.editType = "modify"
       this.diffViewProvider.originalContent = fileContent
-      console.debug("Read file content:", fileContent)
       const lines = fileContent.split("\n")
-      console.debug("File content split into lines:", lines)
 
       // Convert position to number and validate
       const lineNumber = parseInt(position)
       console.debug("Parsed line number:", lineNumber)
-      if (isNaN(lineNumber) || lineNumber < 0 || lineNumber > lines.length) {
+      if (isNaN(lineNumber) || lineNumber < 0) {
         throw new Error(`Invalid position: ${position}. Must be a number between 0 and ${lines.length}`)
       }
 
@@ -1008,24 +1004,24 @@ export class ToolExecutor {
         diff: responseTemplates.createPrettyPatch(relPath, this.diffViewProvider.originalContent, updatedContent),
       } satisfies CodeySayTool)
 
-      console.debug("Asking for approval with complete message:", completeMessage)
+      console.debug("[DEBUG] Asking for approval for insertion")
       const didApprove = await this.codey
         .askUser("tool", completeMessage, false)
         .then((response) => response.response === "yesButtonClicked")
 
       if (!didApprove) {
-        console.debug("Changes were not approved, reverting changes.")
+        console.debug("[DEBUG] Changes were not approved, reverting changes.")
         await this.diffViewProvider.revertChanges()
         this.codey.pushToolResult(block, "Changes were rejected by the user.")
         return
       }
 
-      console.debug("Saving changes after approval.")
+      console.debug("[DEBUG] Saving changes after approval.")
       const { newProblemsMessage, userEdits, finalContent } = await this.diffViewProvider.saveChanges()
       this.codey.didEditFile = true
 
       if (!userEdits) {
-        console.debug("No user edits, pushing tool result.")
+        console.debug("[DEBUG] No user edits, pushing tool result.")
         this.codey.pushToolResult(
           block,
           `The code block was successfully inserted at line ${position} in ${relPath.toPosix()}.${newProblemsMessage}`
@@ -1040,7 +1036,7 @@ export class ToolExecutor {
         diff: userEdits,
       } satisfies CodeySayTool)
 
-      console.debug("User made edits, sending feedback diff:", userFeedbackDiff)
+      console.debug("[DEBUG] User made edits, sending feedback diff:", userFeedbackDiff)
       await this.codey.sendMessage("user_feedback_diff", userFeedbackDiff)
       this.codey.pushToolResult(
         block,
