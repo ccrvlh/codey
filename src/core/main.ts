@@ -15,12 +15,7 @@ import { TerminalManager } from "../integrations/terminal/TerminalManager"
 import { UrlContentFetcher } from "../services/browser/UrlContentFetcher"
 import { listFiles } from "../services/glob/list-files"
 import { combineApiRequests, combineCommandSequences } from "../shared/combiners"
-import {
-  APIConfiguration,
-  APIRequestInfo,
-  CodeyMessage,
-  HistoryItem,
-} from "../shared/interfaces"
+import { APIConfiguration, APIRequestInfo, CodeyMessage, HistoryItem } from "../shared/interfaces"
 import { getApiMetrics } from "../shared/metrics"
 import { APIRequestCancelReason, CodeyAsk, CodeySay, ExtensionMessageType, UserResponse } from "../shared/types"
 import { AskUserResponse, AssistantMessageContent, TextContent, ToolResponse, ToolUse, UserContent } from "../types"
@@ -37,9 +32,7 @@ import { CUSTOM_USER_INSTRUCTIONS, SYSTEM_PROMPT } from "./prompts"
 import { ToolExecutor } from "./tools"
 import { ViewProvider } from "./webview"
 
-
 export class Agent {
-
   // Declarations
   api: APIHandler
   urlContentFetcher: UrlContentFetcher
@@ -53,6 +46,7 @@ export class Agent {
   consecutiveMistakeCount: number = 0
   didEditFile: boolean = false
   didRejectTool = false
+  didExecuteTool = false
   desktopPath = path.join(os.homedir(), "Desktop")
   userMessageContent: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
   cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? this.desktopPath
@@ -84,7 +78,7 @@ export class Agent {
     config: AgentConfig,
     task?: string,
     images?: string[],
-    historyItem?: HistoryItem,
+    historyItem?: HistoryItem
   ) {
     this.providerRef = new WeakRef(provider)
     this.globalStoragePath = this.providerRef.deref()?.context.globalStorageUri.fsPath ?? ""
@@ -136,11 +130,15 @@ export class Agent {
    * @param storagePath - The path where the conversation history should be stored.
    * @param taskId - The unique identifier for the task.
    * @param history - An array of messages representing the conversation history.
-   * 
+   *
    * @returns A promise that resolves when the conversation history has been successfully saved.
    * @throws Will log an error message if saving the conversation history fails.
    */
-  private async saveApiConversationHistory(storagePath: string, taskId: string, history: Anthropic.Messages.MessageParam[]) {
+  private async saveApiConversationHistory(
+    storagePath: string,
+    taskId: string,
+    history: Anthropic.Messages.MessageParam[]
+  ) {
     try {
       const dir = await ensureTaskDirectoryExists(storagePath, taskId)
       const filePath = path.join(dir, GlobalFileNames.apiConversationHistory)
@@ -153,12 +151,12 @@ export class Agent {
 
   /**
    * Retrieves saved Codey messages from the specified storage path and task ID.
-   * 
+   *
    * This function first checks for the existence of the messages file in the current
    * directory. If the file exists, it reads and parses the JSON content. If the file
    * does not exist, it checks an old location for the messages file, reads and parses
    * the JSON content if found, and then removes the old file.
-   * 
+   *
    * @param storagePath - The base path where task directories are stored.
    * @param taskId - The unique identifier for the task.
    * @returns A promise that resolves to an array of CodeyMessage objects.
@@ -223,7 +221,8 @@ export class Agent {
       await fs.writeFile(filePath, JSON.stringify(messages))
       const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(messages.slice(1))))
       const taskMessage = messages[0] // first message is always the task say
-      const lastRelevantMessage = messages[findLastIndex(messages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))]
+      const lastRelevantMessage =
+        messages[findLastIndex(messages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))]
       await this.providerRef.deref()?.updateTaskHistory({
         id: taskId,
         ts: lastRelevantMessage.ts,
@@ -243,25 +242,25 @@ export class Agent {
 
   /**
    * Asks the user a question and waits for their response.
-   * 
+   *
    * Partial has three valid states:
    *  - true (partial message)
    *  - false (completion of partial message)
    *  - undefined (individual complete message)
-   * 
+   *
    * If this Codey instance was aborted by the provider, then the only thing keeping us alive is a promise still running in the background
    * in which case we don't want to send its result to the webview as it is attached to a new instance of Codey now.
    * So we can safely ignore the result of any active promises, and this class will be deallocated.
    * (Although we set Codey = undefined in provider, that simply removes the reference to this instance,
    * but the instance is still alive until this promise resolves or rejects.)
-   * 
+   *
    * Bug for the history books (isUpdatingPreviousPartial):
    * In the webview we use the ts as the chatrow key for the virtuoso list. Since we would update this ts right at the end of streaming,
    * it would cause the view to flicker. The key prop has to be stable otherwise react has trouble reconciling items between renders,
    * causing unmounting and remounting of components (flickering).
    * The lesson here is if you see flickering when rendering lists, it's likely because the key prop is not stable.
    * So in this case we must make sure that the message ts is never altered after first setting it.
-   * 
+   *
    * @param type - The type of question being asked.
    * @param text - Optional text of the question.
    * @param partial - Optional flag indicating if the message is partial.
@@ -275,7 +274,8 @@ export class Agent {
     let askTs: number
     if (partial !== undefined) {
       const lastMessage = this.codeyMessages.at(-1)
-      const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === "ask" && lastMessage.ask === type
+      const isUpdatingPreviousPartial =
+        lastMessage && lastMessage.partial && lastMessage.type === "ask" && lastMessage.ask === type
       if (partial) {
         if (isUpdatingPreviousPartial) {
           // existing partial message, so update it
@@ -338,9 +338,9 @@ export class Agent {
   }
 
   /**
-   * Resets the user's response data by setting the userResponse, 
+   * Resets the user's response data by setting the userResponse,
    * userResponseText, and userResponseImages properties to undefined.
-   * 
+   *
    * @returns {Promise<void>} A promise that resolves when the reset is complete.
    */
   async resetUserResponse(): Promise<void> {
@@ -378,7 +378,8 @@ export class Agent {
     }
 
     const lastMessage = this.codeyMessages.at(-1)
-    const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
+    const isUpdatingPreviousPartial =
+      lastMessage && lastMessage.partial && lastMessage.type === "say" && lastMessage.say === type
 
     if (partial && isUpdatingPreviousPartial) {
       // existing partial message, so update it
@@ -499,8 +500,10 @@ export class Agent {
 
     // need to make sure that the api conversation history can be resumed by the api, even if it goes out of sync with codey messages
 
-    let existingApiConversationHistory: Anthropic.Messages.MessageParam[] =
-      await getSavedApiConversationHistory(this.globalStoragePath, this.taskId)
+    let existingApiConversationHistory: Anthropic.Messages.MessageParam[] = await getSavedApiConversationHistory(
+      this.globalStoragePath,
+      this.taskId
+    )
 
     // v2.0 xml tags refactor caveat: since we don't use tools anymore, we need to replace all tool use blocks with a text block since the API disallows conversations with tool uses and no tool schema
     const conversationWithoutToolBlocks = existingApiConversationHistory.map((message) => {
@@ -546,7 +549,9 @@ export class Agent {
     const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
 
     if (lastMessage.role === "assistant") {
-      const content = Array.isArray(lastMessage.content) ? lastMessage.content : [{ type: "text", text: lastMessage.content }]
+      const content = Array.isArray(lastMessage.content)
+        ? lastMessage.content
+        : [{ type: "text", text: lastMessage.content }]
       const hasToolUse = content.some((block) => block.type === "tool_use")
 
       if (hasToolUse) {
@@ -584,9 +589,7 @@ export class Agent {
           ) as Anthropic.ToolResultBlockParam[]
 
           const missingToolResponses: Anthropic.ToolResultBlockParam[] = toolUseBlocks
-            .filter(
-              (toolUse) => !existingToolResults.some((result) => result.tool_use_id === toolUse.id)
-            )
+            .filter((toolUse) => !existingToolResults.some((result) => result.tool_use_id === toolUse.id))
             .map((toolUse) => ({
               type: "tool_result",
               tool_use_id: toolUse.id,
@@ -615,9 +618,10 @@ export class Agent {
     newUserContent.push({
       type: "text",
       text:
-        `[TASK RESUMPTION] This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${this.cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry.${wasRecent
-          ? "\n\nIMPORTANT: If the last tool use was a write_to_file that was interrupted, the file was reverted back to its original state before the interrupted edit, and you do NOT need to re-read the file as you already have its up-to-date contents."
-          : ""
+        `[TASK RESUMPTION] This task was interrupted ${agoText}. It may or may not be complete, so please reassess the task context. Be aware that the project state may have changed since then. The current working directory is now '${this.cwd.toPosix()}'. If the task has not been completed, retry the last step before interruption and proceed with completing the task.\n\nNote: If you previously attempted a tool use that the user did not provide a result for, you should assume the tool use was not successful and assess whether you should retry.${
+          wasRecent
+            ? "\n\nIMPORTANT: If the last tool use was a write_to_file that was interrupted, the file was reverted back to its original state before the interrupted edit, and you do NOT need to re-read the file as you already have its up-to-date contents."
+            : ""
         }` +
         (responseText
           ? `\n\nNew instructions for task continuation:\n<user_message>\n${responseText}\n</user_message>`
@@ -695,8 +699,9 @@ export class Agent {
       case "write_to_file":
         return `[${block.name} for '${block.params.path}']`
       case "search_files":
-        return `[${block.name} for '${block.params.regex}'${block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""
-          }]`
+        return `[${block.name} for '${block.params.regex}'${
+          block.params.file_pattern ? ` in '${block.params.file_pattern}'` : ""
+        }]`
       case "list_files":
         return `[${block.name} for '${block.params.path}']`
       case "list_code_definition_names":
@@ -773,7 +778,8 @@ export class Agent {
       return [
         true,
         responseTemplates.toolResult(
-          `Command is still running in the user's terminal.${result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
+          `Command is still running in the user's terminal.${
+            result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
           }\n\nThe user provided the following feedback:\n<feedback>\n${userFeedback.text}\n</feedback>`,
           userFeedback.images
         ),
@@ -783,7 +789,8 @@ export class Agent {
     if (!completed) {
       return [
         false,
-        `Command is still running in the user's terminal.${result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
+        `Command is still running in the user's terminal.${
+          result.length > 0 ? `\nHere's the output so far:\n${result}` : ""
         }\n\nYou will be updated on the terminal status and new output in the future.`,
       ]
     }
@@ -835,7 +842,7 @@ export class Agent {
       await pWaitFor(() => busyTerminals.every((t) => !this.terminalManager.isProcessHot(t.id)), {
         interval: 100,
         timeout: 15_000,
-      }).catch(() => { })
+      }).catch(() => {})
     }
 
     // reset, this lets us know when to wait for saved files to update terminals
@@ -949,15 +956,15 @@ export class Agent {
    * Attempts to make an API request and handle the response as an asynchronous iterable stream.
    * If the previous API request's token usage is close to the context window limit, it truncates
    * the conversation history to free up space for the new request.
-   * 
+   *
    * If the API request fails on the first chunk, it prompts the user to retry the request.
    * This will be handled differently (`api_req_falied`) as it asks the user to retry the request.
-   * 
+   *
    * @param previousApiReqIndex - The index of the previous API request in the conversation history.
    * @yields {APIStream} - An asynchronous iterable stream of API response chunks.
    * @throws {Error} - Throws an error if the API request fails on the first chunk and the user does not choose to retry.
    */
-  async * attemptApiRequest(previousApiReqIndex: number): APIStream {
+  async *attemptApiRequest(previousApiReqIndex: number): APIStream {
     const supportsImages = this.api.getModel().info.supportsImages ?? false
     let systemPrompt = SYSTEM_PROMPT(this.cwd, supportsImages)
     if (this.config.customInstructions && this.config.customInstructions.trim()) {
@@ -985,7 +992,10 @@ export class Agent {
       const firstChunk = await iterator.next()
       yield firstChunk.value
     } catch (error) {
-      const { response } = await this.askUser("api_req_failed", error.message ?? JSON.stringify(serializeError(error), null, 2))
+      const { response } = await this.askUser(
+        "api_req_failed",
+        error.message ?? JSON.stringify(serializeError(error), null, 2)
+      )
       if (response !== "yesButtonClicked") {
         throw new Error("API request failed")
       }
@@ -999,7 +1009,7 @@ export class Agent {
 
   /**
    * Recursively makes requests to the Codey API based on user content.
-   * 
+   *
    * This function handles the following:
    * - Aborts the request if the instance is aborted.
    * - Handles consecutive mistakes by asking the user for guidance if the mistake count reaches 3.
@@ -1012,14 +1022,14 @@ export class Agent {
    * - Resets streaming state and handles assistant messages.
    * - Adds assistant responses to the conversation history and handles tool usage.
    * - Recursively calls itself to handle subsequent requests.
-   * 
+   *
    * The function ensures that the assistant's response is saved before proceeding to tool use,
    * and handles various states of the task, including partial messages and user feedback.
-   * 
+   *
    * getting verbose details is an expensive operation, it uses globby to top-down build file structure of project
    * which for large projects can take a few seconds
    * for the best UX we show a placeholder api_req_started message with a loading spinner as this happens
-   * 
+   *
    * NOTE: this comment is here for future reference - this was a workaround for userMessageContent not getting set to true.
    * It was due to it not recursively calling for partial blocks when didRejectTool,
    * so it would get stuck waiting for a partial block to complete before it could continue.
@@ -1031,18 +1041,15 @@ export class Agent {
    * if (this.currentStreamingContentIndex >= completeBlocks.length) {
    * 	this.userMessageContentReady = true
    * }
-   * 
+   *
    * @param userContent - The content provided by the user.
    * @param includeFileDetails - Whether to include file details in the request. Defaults to false.
    * @returns A promise that resolves to a boolean indicating whether the loop should end.
-   * 
+   *
    * @throws Error if the Codey instance is aborted.
-   * 
+   *
    */
-  async recursivelyMakeCodeyRequests(
-    userContent: UserContent,
-    includeFileDetails: boolean = false
-  ): Promise<boolean> {
+  async recursivelyMakeCodeyRequests(userContent: UserContent, includeFileDetails: boolean = false): Promise<boolean> {
     if (this.abort) {
       throw new Error("Codey instance aborted")
     }
@@ -1072,8 +1079,7 @@ export class Agent {
     await this.sendMessage(
       "api_req_started",
       JSON.stringify({
-        request:
-          userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n") + "\n\nLoading...",
+        request: userContent.map((block) => formatContentBlockToMarkdown(block)).join("\n\n") + "\n\nLoading...",
       })
     )
 
@@ -1130,13 +1136,16 @@ export class Agent {
           console.debug("[DEBUG] Updating partial message", lastMessage)
         }
 
-        const cancelMessage = cancelReason === "streaming_failed" ? "[Response interrupted by API Error]" : "[Response interrupted by user]"
+        const cancelMessage =
+          cancelReason === "streaming_failed" ? "[Response interrupted by API Error]" : "[Response interrupted by user]"
         await this.addToApiConversationHistory({
           role: "assistant",
-          content: [{
-            type: "text",
-            text: assistantMessage + `\n\n` + cancelMessage
-          }],
+          content: [
+            {
+              type: "text",
+              text: assistantMessage + `\n\n` + cancelMessage,
+            },
+          ],
         })
 
         updateApiReqMsg(cancelReason, streamingFailedMessage)
@@ -1261,23 +1270,23 @@ export class Agent {
 
   /**
    * Processes the assistant's message content block by block.
-   * 
+   *
    * If the instance is aborted, it throws an error.
    * If the message presentation is locked, it sets a flag indicating there are pending updates and returns.
    * Otherwise, it locks the message presentation and resets the pending updates flag.
-   * 
+   *
    * If the current content index is out of bounds and streaming is complete, it sets the user message content ready flag.
-   * 
+   *
    * Creates a deep copy of the current content block to avoid reference issues during streaming.
    * Processes the content block based on its type (text or tool_use).
-   * 
+   *
    * Unlocks the message presentation.
-   * 
+   *
    * If the content block is not partial or a tool was rejected, it handles the completion of the content block streaming and execution.
    * Increments the content index and calls the method recursively if there are more content blocks to process.
-   * 
+   *
    * If there are pending updates and the content block is partial, it calls the method recursively.
-   * 
+   *
    * @throws {Error} If the Codey instance is aborted.
    */
   async handleAssistantMessage() {
@@ -1332,10 +1341,10 @@ export class Agent {
 
   /**
    * Handles a block of text content, performing various transformations and checks.
-   * 
+   *
    * @param block - The text content block to handle.
    * @returns A promise that resolves when the handling is complete.
-   * 
+   *
    * @remarks
    * - If the tool has been rejected (`didRejectTool`), the function returns early.
    * - If the content is empty, it sends a message with the content.
@@ -1349,7 +1358,7 @@ export class Agent {
    * - Checks if tagContent is likely an incomplete tag name (letters and underscores only).
    * - Preemptively removes `<` or `</` to keep from these artifacts showing up in chat (also handles closing thinking tags).
    * - If the tag is incomplete and at the end, removes it from the content.
-   * 
+   *
    * @example
    * ```typescript
    * const textBlock: TextContent = { content: "<thinking>example</thinking>", partial: false };
@@ -1367,7 +1376,6 @@ export class Agent {
 
       const lastOpenBracketIndex = content.lastIndexOf("<")
       if (lastOpenBracketIndex !== -1) {
-
         const possibleTag = content.slice(lastOpenBracketIndex)
         const hasCloseBracket = possibleTag.includes(">")
         if (!hasCloseBracket) {
@@ -1391,9 +1399,9 @@ export class Agent {
 
   /**
    * Handles the use of a tool block.
-   * 
+   *
    * @param block - The tool use block to handle.
-   * 
+   *
    * This method performs the following actions:
    * - If the tool has not been rejected, it delegates the handling to the tool executor.
    * - If the tool has been rejected, it ignores any tool content after the user has rejected the tool once.
@@ -1401,8 +1409,17 @@ export class Agent {
    * - If the block is partial, it adds a message indicating that the tool was interrupted and not executed due to a previous rejection.
    */
   async handleToolUseBlock(block: ToolUse) {
+    if (this.didExecuteTool) {
+      this.userMessageContent.push({
+        type: "text",
+        text: `Additional content after tool use was ignored. Only a single tool is allowed per message.`,
+      })
+      return
+    }
+
     if (!this.didRejectTool) {
       await this.toolExecutor.handleToolUse(block)
+      this.didExecuteTool = true
       return
     }
 
@@ -1413,9 +1430,10 @@ export class Agent {
       })
     }
 
+    const toolDesc = this.getToolDescription(block)
     this.userMessageContent.push({
       type: "text",
-      text: `Tool ${this.getToolDescription(block)} was interrupted and not executed due to user rejecting a previous tool.`,
+      text: `Tool ${toolDesc} was interrupted and not executed due to user rejecting a previous tool.`,
     })
   }
 }
