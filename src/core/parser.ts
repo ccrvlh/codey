@@ -31,9 +31,7 @@ export class AgentMessageParser {
     const paramClosingTag = `</${this.currentParamName}>`
 
     if (currentParamValue.endsWith(paramClosingTag)) {
-      this.currentToolUse.params[this.currentParamName] = currentParamValue
-        .slice(0, -paramClosingTag.length)
-        .trim()
+      this.currentToolUse.params[this.currentParamName] = currentParamValue.slice(0, -paramClosingTag.length).trim()
       this.currentParamName = undefined
     }
   }
@@ -91,9 +89,7 @@ export class AgentMessageParser {
       const contentEndIndex = toolContent.lastIndexOf(contentEndTag)
 
       if (contentStartIndex !== -1 && contentEndIndex !== -1 && contentEndIndex > contentStartIndex) {
-        this.currentToolUse.params[contentParamName] = toolContent
-          .slice(contentStartIndex, contentEndIndex)
-          .trim()
+        this.currentToolUse.params[contentParamName] = toolContent.slice(contentStartIndex, contentEndIndex).trim()
       }
     }
   }
@@ -163,10 +159,8 @@ export class AgentMessageParser {
 
     const textContent: TextContent = {
       type: "text",
-      content: this.currentTextContent.content
-        .slice(0, -toolUseOpeningTag.slice(0, -1).length)
-        .trim(),
-      partial: false
+      content: this.currentTextContent.content.slice(0, -toolUseOpeningTag.slice(0, -1).length).trim(),
+      partial: false,
     }
 
     this.contentBlocks.push(textContent)
@@ -211,26 +205,9 @@ export class AgentMessageParser {
    */
   static parse(assistantMessage: string) {
     const parser = new AgentMessageParser()
-    let foundToolUse = false
-    let hasContentAfterTool = false
 
     for (let i = 0; i < assistantMessage.length; i++) {
       parser.accumulator += assistantMessage[i]
-
-      if (foundToolUse && !parser.currentToolUse) {
-        hasContentAfterTool = true
-        parser.accumulator = parser.accumulator.slice(0, i)
-        break
-      }
-
-      if (parser.currentToolUse) {
-        foundToolUse = true
-      }
-
-      if (foundToolUse && parser.currentToolUse === undefined) {
-        parser.accumulator = parser.accumulator.slice(0, i)
-        break
-      }
 
       if (parser.currentToolUse && parser.currentParamName) {
         parser.handleParameterParsing()
@@ -238,6 +215,15 @@ export class AgentMessageParser {
       }
 
       if (parser.currentToolUse) {
+        const currentToolValue = parser.accumulator.slice(parser.currentToolUseStartIndex)
+        const toolUseClosingTag = `</${parser.currentToolUse.name}>`
+
+        if (currentToolValue.endsWith(toolUseClosingTag)) {
+          parser.currentToolUse.partial = false
+          parser.contentBlocks.push(parser.currentToolUse)
+          return parser.contentBlocks
+        }
+
         parser.handleToolUseParsing()
         continue
       }
@@ -246,15 +232,6 @@ export class AgentMessageParser {
     }
 
     parser.finalizePartialContent()
-
-    if (hasContentAfterTool) {
-      parser.contentBlocks.push({
-        type: "text",
-        content: "\n\n[Additional content after tool use was ignored. Only a single tool is allowed per message.]",
-        partial: false
-      })
-    }
-
     return parser.contentBlocks
   }
 }
