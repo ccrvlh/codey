@@ -144,15 +144,11 @@ export class ConversationState {
       const dir = await ensureTaskDirectoryExists(this.globalStoragePath, this.taskId)
       const filePath = path.join(dir, GlobalFileNames.uiMessages)
       await fs.writeFile(filePath, JSON.stringify(this.codeyMessages))
-      // combined as they are in ChatView
       const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.codeyMessages.slice(1))))
       const taskMessage = this.codeyMessages[0] // first message is always the task say
       const lastRelevantMessage =
         this.codeyMessages[
-        findLastIndex(
-          this.codeyMessages,
-          (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task")
-        )
+          findLastIndex(this.codeyMessages, (m) => !(m.ask === "resume_task" || m.ask === "resume_completed_task"))
         ]
       await this.providerRef.deref()?.updateTaskHistory({
         id: this.taskId,

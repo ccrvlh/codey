@@ -160,7 +160,7 @@ export class ToolExecutor {
       if (block.partial) {
         // update gui message
         const partialMessage = JSON.stringify(sharedMessageProps)
-        await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
+        await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {})
         // update editor
         if (!this.diffViewProvider.isEditing) {
           // open the editor and prepare to stream content in
@@ -194,7 +194,7 @@ export class ToolExecutor {
         const partialMessage = JSON.stringify(sharedMessageProps)
 
         // sending true for partial even though it's not a partial, this shows the edit row before the content is streamed into the editor
-        await this.codey.askUser("tool", partialMessage, true).catch(() => { })
+        await this.codey.askUser("tool", partialMessage, true).catch(() => {})
         await this.diffViewProvider.open(relPath)
       }
       await this.diffViewProvider.update(newContent, true, this.config.editAutoScroll)
@@ -234,13 +234,13 @@ export class ToolExecutor {
       this.codey.pushToolResult(
         block,
         `The user made the following updates to your content:\n\n${userEdits}\n\n` +
-        `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
-        `<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
-        `Please note:\n` +
-        `1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
-        `2. Proceed with the task using this updated file content as the new baseline.\n` +
-        `3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
-        `${newProblemsMessage}`
+          `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
+          `<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
+          `Please note:\n` +
+          `1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
+          `2. Proceed with the task using this updated file content as the new baseline.\n` +
+          `3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
+          `${newProblemsMessage}`
       )
       await this.diffViewProvider.reset()
       return
@@ -358,7 +358,7 @@ export class ToolExecutor {
         if (this.config.alwaysAllowReadOnly) {
           await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {})
         }
         return
       }
@@ -406,7 +406,7 @@ export class ToolExecutor {
         if (this.config.alwaysAllowReadOnly) {
           await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {})
         }
         return
       }
@@ -458,7 +458,7 @@ export class ToolExecutor {
         if (this.config.alwaysAllowReadOnly) {
           await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {})
         }
         return
       }
@@ -509,7 +509,7 @@ export class ToolExecutor {
         if (this.config.alwaysAllowReadOnly) {
           await this.codey.sendMessage("tool", partialMessage, undefined, block.partial)
         } else {
-          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => { })
+          await this.codey.askUser("tool", partialMessage, block.partial).catch(() => {})
         }
         return
       }
@@ -551,7 +551,8 @@ export class ToolExecutor {
       this.codey.pushToolResult(
         block,
         responseTemplates.toolResult(
-          `The site has been visited, with console logs captured and a screenshot taken for your analysis.\n\nConsole logs:\n${logs || "(No logs)"
+          `The site has been visited, with console logs captured and a screenshot taken for your analysis.\n\nConsole logs:\n${
+            logs || "(No logs)"
           }`,
           [screenshot]
         )
@@ -569,7 +570,7 @@ export class ToolExecutor {
       if (block.partial) {
         await this.codey
           .askUser("command", this.removeClosingTag(block, "command", command), block.partial)
-          .catch(() => { })
+          .catch(() => {})
         return
       } else {
         if (!command) {
@@ -610,7 +611,7 @@ export class ToolExecutor {
             // update command
             await this.codey
               .askUser("command", this.removeClosingTag(block, "command", command), block.partial)
-              .catch(() => { })
+              .catch(() => {})
           } else {
             // last message is completion_result
             // we have command string, which means we have the result as well, so finish it (doesnt have to exist yet)
@@ -622,7 +623,7 @@ export class ToolExecutor {
             )
             await this.codey
               .askUser("command", this.removeClosingTag(block, "command", command), block.partial)
-              .catch(() => { })
+              .catch(() => {})
           }
         } else {
           // no command, still outputting partial result
@@ -706,7 +707,7 @@ export class ToolExecutor {
       if (block.partial) {
         await this.codey
           .askUser("followup", this.removeClosingTag(block, "question", question), block.partial)
-          .catch(() => { })
+          .catch(() => {})
         return
       }
       if (!question) {
@@ -728,7 +729,9 @@ export class ToolExecutor {
   }
 
   async searchReplaceTool(block: ToolUse) {
-    if (!block.partial) console.debug("[DEBUG] Search and replace tool running...")
+    if (!block.partial) {
+      console.debug("[DEBUG] Search and replace tool running...")
+    }
     const contentParam: string | undefined = block.params.content
     const relPath: string | undefined = block.params.path
     const cleanPath = this.removeClosingTag(block, "path", relPath)
@@ -749,7 +752,7 @@ export class ToolExecutor {
           ...sharedMessageProps,
           content: undefined,
         } satisfies CodeySayTool)
-        await this.codey.askUser("tool", partialMessage, block.partial).catch((e) => { })
+        await this.codey.askUser("tool", partialMessage, block.partial).catch((e) => {})
         return
       }
 
@@ -898,7 +901,7 @@ export class ToolExecutor {
       this.codey.pushToolResult(
         block,
         `The user made the following updates:\n\n${userEdits}\n\n` +
-        `Changes applied successfully to ${filePath}.${newProblemsMessage}`
+          `Changes applied successfully to ${filePath}.${newProblemsMessage}`
       )
       await this.diffViewProvider.reset()
     } catch (error) {
@@ -910,7 +913,9 @@ export class ToolExecutor {
   }
 
   async insertCodeBlockTool(block: ToolUse) {
-    if (!block.partial) console.debug("[DEBUG] Running insertCodeBlockTool")
+    if (!block.partial) {
+      console.debug("[DEBUG] Running insertCodeBlockTool")
+    }
     const relPath: string | undefined = block.params.path
     const position: string | undefined = block.params.position
     const content: string | undefined = block.params.content
@@ -1041,13 +1046,13 @@ export class ToolExecutor {
       this.codey.pushToolResult(
         block,
         `The user made the following updates to your content:\n\n${userEdits}\n\n` +
-        `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
-        `<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
-        `Please note:\n` +
-        `1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
-        `2. Proceed with the task using this updated file content as the new baseline.\n` +
-        `3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
-        `${newProblemsMessage}`
+          `The updated content, which includes both your original modifications and the user's edits, has been successfully saved to ${relPath.toPosix()}. Here is the full, updated content of the file:\n\n` +
+          `<final_file_content path="${relPath.toPosix()}">\n${finalContent}\n</final_file_content>\n\n` +
+          `Please note:\n` +
+          `1. You do not need to re-write the file with these changes, as they have already been applied.\n` +
+          `2. Proceed with the task using this updated file content as the new baseline.\n` +
+          `3. If the user's edits have addressed part of the task or changed the requirements, adjust your approach accordingly.` +
+          `${newProblemsMessage}`
       )
       await this.diffViewProvider.reset()
     } catch (error) {
@@ -1072,57 +1077,79 @@ export class ToolExecutor {
     try {
       switch (block.name) {
         case "write_to_file": {
-          if (!block.partial) console.debug("[DEBUG] Write to file tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Write to file tool called with block:", block)
+          }
           await this.writeToFileTool(block)
           return
         }
         case "read_file": {
-          if (!block.partial) console.debug("[DEBUG] Read file tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Read file tool called with block:", block)
+          }
           await this.readFileTool(block)
           return
         }
         case "list_files": {
-          if (!block.partial) console.debug("[DEBUG] List files tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] List files tool called with block:", block)
+          }
           await this.listFilesTool(block)
           return
         }
         case "list_code_definition_names": {
-          if (!block.partial) console.debug("[DEBUG] List code definition names tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] List code definition names tool called with block:", block)
+          }
           await this.listCodeDefinitionNamesTool(block)
           return
         }
         case "search_files": {
-          if (!block.partial) console.debug("[DEBUG] Search files tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Search files tool called with block:", block)
+          }
           await this.searchFilesTool(block)
           return
         }
         case "inspect_site": {
-          if (!block.partial) console.debug("[DEBUG] Inspect site tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Inspect site tool called with block:", block)
+          }
           await this.inspectSizeTool(block)
           return
         }
         case "execute_command": {
-          if (!block.partial) console.debug("[DEBUG] Execute command tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Execute command tool called with block:", block)
+          }
           await this.executeCommandTool(block)
           return
         }
         case "ask_followup_question": {
-          if (!block.partial) console.debug("[DEBUG] Ask follow-up question tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Ask follow-up question tool called with block:", block)
+          }
           await this.askFollowupQuestionTool(block)
           return
         }
         case "attempt_completion": {
-          if (!block.partial) console.debug("[DEBUG] Attempt completion tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Attempt completion tool called with block:", block)
+          }
           await this.attemptCompletionTool(block)
           return
         }
         case "search_replace": {
-          if (!block.partial) console.debug("[DEBUG] Search and replace tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Search and replace tool called with block:", block)
+          }
           await this.searchReplaceTool(block)
           return
         }
         case "insert_code_block": {
-          if (!block.partial) console.debug("[DEBUG] Insert code block tool called with block:", block)
+          if (!block.partial) {
+            console.debug("[DEBUG] Insert code block tool called with block:", block)
+          }
           await this.insertCodeBlockTool(block)
           return
         }
