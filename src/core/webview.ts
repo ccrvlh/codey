@@ -20,7 +20,6 @@ import { ConfigManager } from "./config"
 import { Agent } from "./main"
 import { openMention } from "./mentions"
 
-
 export class ViewProvider implements vscode.WebviewViewProvider {
   private static activeInstances: Set<ViewProvider> = new Set()
   private disposables: vscode.Disposable[] = []
@@ -152,14 +151,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     await this.clearTask()
     const { apiConfiguration } = await this.getState()
     const config = await this.configManager.getConfig()
-    this.agent = new Agent(
-      this,
-      apiConfiguration,
-      config,
-      undefined,
-      undefined,
-      historyItem,
-    )
+    this.agent = new Agent(this, apiConfiguration, config, undefined, undefined, historyItem)
   }
 
   async postMessageToWebview(message: ExtensionMessage) {
@@ -190,13 +182,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     // then convert it to a uri we can use in the webview.
 
     // The CSS file from the React build output
-    const stylesUri = getUri(webview, this.context.extensionUri, [
-      "webview",
-      "build",
-      "static",
-      "css",
-      "main.css",
-    ])
+    const stylesUri = getUri(webview, this.context.extensionUri, ["webview", "build", "static", "css", "main.css"])
     // The JS file from the React build output
     const scriptUri = getUri(webview, this.context.extensionUri, ["webview", "build", "static", "js", "main.js"])
 
@@ -268,9 +254,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
           case "webviewDidLaunch":
             this.postStateToWebview()
             this.workspaceTracker?.initializeFilePaths() // don't await
-            getTheme().then((theme) =>
-              this.postMessageToWebview({ type: "theme", text: JSON.stringify(theme) })
-            )
+            getTheme().then((theme) => this.postMessageToWebview({ type: "theme", text: JSON.stringify(theme) }))
             this.readOpenRouterModels().then((openRouterModels) => {
               if (openRouterModels) {
                 this.postMessageToWebview({ type: "openRouterModels", openRouterModels })
@@ -356,7 +340,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
           case "exportIncludesSystemPrompt":
             await this.updateGlobalState("exportIncludesSystemPrompt", message.bool ?? undefined)
             if (this.agent) {
-              this.agent.config.alwaysAllowReadOnly = message.bool ?? false
+              this.agent.config.exportIncludesSystemPrompt = message.bool ?? false
             }
             await this.postStateToWebview()
             break
@@ -642,8 +626,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-
-
   async showTaskWithId(id: string) {
     if (id !== this.agent?.taskId) {
       // non-current task
@@ -704,8 +686,14 @@ export class ViewProvider implements vscode.WebviewViewProvider {
   }
 
   async getStateToPostToWebview() {
-    const { apiConfiguration, lastShownAnnouncementId, customInstructions, alwaysAllowReadOnly, editAutoScroll, taskHistory } =
-      await this.getState()
+    const {
+      apiConfiguration,
+      lastShownAnnouncementId,
+      customInstructions,
+      alwaysAllowReadOnly,
+      editAutoScroll,
+      taskHistory,
+    } = await this.getState()
     return {
       version: this.context.extension?.packageJSON?.version ?? "",
       apiConfiguration,
