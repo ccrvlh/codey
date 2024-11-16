@@ -44,6 +44,22 @@ Mention regex:
   - `mentionRegexGlobal`: Creates a global version of the `mentionRegex` to find all matches within a given string.
 
 */
+
+/**
+ * Regular expression to match mentions in a text.
+ *
+ * This regex matches:
+ * - Mentions that start with "@" followed by either:
+ *   - A URL (starting with "/" or a protocol like "http://")
+ *   - The word "problems" followed by a word boundary
+ * - The mention can be followed by punctuation marks (.,;:!?) and whitespace or end of line.
+ */
 export const MENTION_REGEX = /@((?:\/|\w+:\/\/)[^\s]+?|problems\b)(?=[.,;:!?]?(?=[\s\r\n]|$))/
 
+/**
+ * A global regular expression for matching mentions.
+ * This regular expression is created based on the source pattern of `MENTION_REGEX`.
+ *
+ * @constant {RegExp}
+ */
 export const MENTION_REGEX_GLOBAL = new RegExp(MENTION_REGEX.source, "g")

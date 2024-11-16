@@ -1,6 +1,5 @@
 import { Uri, Webview } from "vscode"
 
-
 /**
  * A helper function that returns a unique alphanumeric identifier called a nonce.
  *
@@ -18,7 +17,6 @@ export function getNonce() {
   return text
 }
 
-
 /**
  * A helper function which will get the webview URI of a given file or resource.
  *
@@ -34,7 +32,13 @@ export function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) 
   return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList))
 }
 
-
+/**
+ * Returns a human-readable description of the time elapsed since the given reference timestamp.
+ *
+ * @param ref - The reference timestamp in milliseconds. If not provided, the current time is used.
+ * @returns A string describing the time elapsed since the reference timestamp in a human-readable format.
+ *          Possible values are "just now", "x minutes ago", "x hours ago", or "x days ago".
+ */
 export function timeAgoDescription(ref?: number | null): string {
   // const timestamp = lastCodeyMessage?.ts ?? Date.now()
   const timestamp = ref ?? Date.now()
@@ -54,7 +58,6 @@ export function timeAgoDescription(ref?: number | null): string {
     return `${minutes} minute${minutes > 1 ? "s" : ""} ago`
   }
   return "just now"
-
 }
 
 /**
@@ -75,6 +78,14 @@ export function findLastIndex<T>(array: Array<T>, predicate: (value: T, index: n
   return -1
 }
 
+/**
+ * Finds the last element in the array that satisfies the provided predicate function.
+ *
+ * @template T - The type of elements in the array.
+ * @param {Array<T>} array - The array to search through.
+ * @param {(value: T, index: number, obj: T[]) => boolean} predicate - The function invoked per iteration.
+ * @returns {T | undefined} - The last element that satisfies the predicate, or `undefined` if no such element is found.
+ */
 export function findLast<T>(array: Array<T>, predicate: (value: T, index: number, obj: T[]) => boolean): T | undefined {
   const index = findLastIndex(array, predicate)
   return index === -1 ? undefined : array[index]
