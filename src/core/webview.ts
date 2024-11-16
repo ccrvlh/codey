@@ -27,7 +27,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
   private agent?: Agent
   private configManager: ConfigManager
   private workspaceTracker?: WorkspaceTracker
-  private latestAnnouncementId = "oct-9-2024" // update to some unique identifier when we add a new announcement
+  private latestAnnouncementId = "oct-9-2024"
 
   constructor(readonly context: vscode.ExtensionContext, private readonly outputChannel: vscode.OutputChannel) {
     this.outputChannel.appendLine("CodeyProvider instantiated")
@@ -36,12 +36,18 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     this.configManager = new ConfigManager(context)
   }
 
-  /*
-    VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system. This applies to event listening, commands, interacting with the UI, etc.
-    - https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
-    - https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-    */
-  async dispose() {
+  /**
+   * Disposes of the CodeyProvider instance, releasing all resources and cleaning up.
+   * VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system.
+   * This applies to event listening, commands, interacting with the UI, etc.
+   * The disposal process cleans tasks, and disposes the webview, workspace tracker, and all other registered disposables.
+   *
+   * https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
+   * https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
+   *
+   * @returns {Promise<void>} A promise that resolves when the disposal process is complete.
+   */
+  async dispose(): Promise<void> {
     this.outputChannel.appendLine("Disposing CodeyProvider...")
     await this.clearTask()
     this.outputChannel.appendLine("Cleared task")
@@ -61,37 +67,44 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     ViewProvider.activeInstances.delete(this)
   }
 
+  /**
+   * Retrieves the last visible instance of `ViewProvider` from the active instances.
+   *
+   * @returns {ViewProvider | undefined} The last visible `ViewProvider` instance, or `undefined` if no visible instance is found.
+   */
   public static getVisibleInstance(): ViewProvider | undefined {
     return findLast(Array.from(this.activeInstances), (instance) => instance.view?.visible === true)
   }
 
-  resolveWebviewView(
-    webviewView: vscode.WebviewView | vscode.WebviewPanel
-    //context: vscode.WebviewViewResolveContext<unknown>, used to recreate a deallocated webview, but we don't need this since we use retainContextWhenHidden
-    //token: vscode.CancellationToken
-  ): void | Thenable<void> {
+  /**
+   * Resolves the webview view or panel and sets up necessary configurations and listeners.
+   * This method sets the webview options to allow scripts and define local resource roots.
+   * It sets the HTML content of the webview and sets up an event listener to handle messages from the webview.
+   * Additionally, it registers listeners for visibility changes and disposal of the webview,
+   * as well as a listener for configuration changes, specifically for theme changes.
+   * Finally, it clears any existing tasks and logs the start and end of the resolution process to the output channel.
+   *
+   * context: vscode.WebviewViewResolveContext<unknown>, used to recreate a deallocated webview, but we don't need this since we use retainContextWhenHidden
+   * token: vscode.CancellationToken
+   *
+   * https://github.com/microsoft/vscode-discussions/discussions/840
+   *
+   * @param webviewView - The webview view or panel to be resolved.
+   *
+   */
+  resolveWebviewView(webviewView: vscode.WebviewView | vscode.WebviewPanel): void | Thenable<void> {
     this.outputChannel.appendLine("Resolving webview view")
     this.view = webviewView
 
     webviewView.webview.options = {
-      // Allow scripts in the webview
       enableScripts: true,
       localResourceRoots: [this.context.extensionUri],
     }
-    webviewView.webview.html = this.getHtmlContent(webviewView.webview)
 
-    // Sets up an event listener to listen for messages passed from the webview view context
-    // and executes code based on the message that is recieved
+    webviewView.webview.html = this.getHtmlContent(webviewView.webview)
     this.setWebviewMessageListener(webviewView.webview)
 
-    // Logs show up in bottom panel > Debug Console
-    //console.log("registering listener")
-
-    // Listen for when the panel becomes visible
-    // https://github.com/microsoft/vscode-discussions/discussions/840
     if ("onDidChangeViewState" in webviewView) {
-      // WebviewView and WebviewPanel have all the same properties except for this visibility listener
-      // panel
       webviewView.onDidChangeViewState(
         () => {
           if (this.view?.visible) {
@@ -102,7 +115,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
         this.disposables
       )
     } else if ("onDidChangeVisibility" in webviewView) {
-      // sidebar
       webviewView.onDidChangeVisibility(
         () => {
           if (this.view?.visible) {
@@ -114,8 +126,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
       )
     }
 
-    // Listen for when the view is disposed
-    // This happens when the user closes the view or when the view is closed programmatically
     webviewView.onDidDispose(
       async () => {
         await this.dispose()
@@ -124,11 +134,9 @@ export class ViewProvider implements vscode.WebviewViewProvider {
       this.disposables
     )
 
-    // Listen for when color changes
     vscode.workspace.onDidChangeConfiguration(
       async (e) => {
         if (e && e.affectsConfiguration("workbench.colorTheme")) {
-          // Sends latest theme name to webview
           await this.postMessageToWebview({ type: "theme", text: JSON.stringify(await getTheme()) })
         }
       },
@@ -140,13 +148,29 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     this.outputChannel.appendLine("Webview view resolved")
   }
 
-  async initCodeyWithTask(task?: string, images?: string[]) {
+  /**
+   * Initializes the Codey agent with a specified task and optional images.
+   *
+   * @param {string} [task] - The task to initialize the agent with.
+   * @param {string[]} [images] - An optional array of image URLs to be used by the agent.
+   * @returns {Promise<void>} A promise that resolves when the initialization is complete.
+   */
+  async initCodeyWithTask(task?: string, images?: string[]): Promise<void> {
     await this.clearTask()
     const { apiConfiguration } = await this.getState()
     const config = await this.configManager.getConfig()
     this.agent = new Agent(this, apiConfiguration, config, task, images, undefined)
   }
 
+  /**
+   * Initializes the Codey agent with a given history item.
+   *
+   * This method clears any existing tasks, retrieves the current state and configuration,
+   * and then creates a new instance of the `Agent` class using the provided history item.
+   *
+   * @param historyItem - The history item to initialize the Codey agent with.
+   * @returns A promise that resolves when the initialization is complete.
+   */
   async initCodeyWithHistoryItem(historyItem: HistoryItem) {
     await this.clearTask()
     const { apiConfiguration } = await this.getState()
@@ -339,6 +363,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             break
           case "exportIncludesSystemPrompt":
             await this.updateGlobalState("exportIncludesSystemPrompt", message.bool ?? undefined)
+            console.log("exportIncludesSystemPrompt", message.bool)
             if (this.agent) {
               this.agent.config.exportIncludesSystemPrompt = message.bool ?? false
             }
@@ -589,7 +614,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     return cacheDir
   }
 
-  // Task history
+  // Task Management
 
   async getTaskWithId(id: string): Promise<{
     historyItem: HistoryItem
@@ -680,6 +705,25 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     await this.postStateToWebview()
   }
 
+  async clearTask() {
+    this.agent?.abortTask()
+    this.agent = undefined // removes reference to it, so once promises end it will be garbage collected
+  }
+
+  async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
+    const history = ((await this.getGlobalState("taskHistory")) as HistoryItem[]) || []
+    const existingItemIndex = history.findIndex((h) => h.id === item.id)
+    if (existingItemIndex !== -1) {
+      history[existingItemIndex] = item
+    } else {
+      history.push(item)
+    }
+    await this.updateGlobalState("taskHistory", history)
+    return history
+  }
+
+  // State Management
+
   async postStateToWebview() {
     const state = await this.getStateToPostToWebview()
     this.postMessageToWebview({ type: "state", state })
@@ -705,11 +749,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
       taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
       shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
     }
-  }
-
-  async clearTask() {
-    this.agent?.abortTask()
-    this.agent = undefined // removes reference to it, so once promises end it will be garbage collected
   }
 
   async getState() {
@@ -815,20 +854,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
-    const history = ((await this.getGlobalState("taskHistory")) as HistoryItem[]) || []
-    const existingItemIndex = history.findIndex((h) => h.id === item.id)
-    if (existingItemIndex !== -1) {
-      history[existingItemIndex] = item
-    } else {
-      history.push(item)
-    }
-    await this.updateGlobalState("taskHistory", history)
-    return history
-  }
-
-  // global
-
   async updateGlobalState(key: GlobalStateKey, value: any) {
     await this.context.globalState.update(key, value)
   }
@@ -837,7 +862,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     return await this.context.globalState.get(key)
   }
 
-  // secrets
+  // Secrets
 
   private async storeSecret(key: SecretKey, value?: string) {
     if (value) {

@@ -1,10 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { UserResponse } from "../shared/types";
-
+import Anthropic from "@anthropic-ai/sdk"
+import { UserResponse } from "../shared/types"
 
 export type AskUserResponse = {
-  response: UserResponse;
-  text?: string;
+  response: UserResponse
+  text?: string
   images?: string[]
 }
 
@@ -14,7 +13,6 @@ export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.I
 export type UserContent = Array<
   Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.ToolUseBlockParam | Anthropic.ToolResultBlockParam
 >
-
 
 export interface TextContent {
   type: "text"
@@ -49,7 +47,6 @@ export const toolParamNames = [
   "result",
   "position",
 ] as const
-
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
 export type ToolUseName = (typeof toolUseNames)[number]
