@@ -6,21 +6,11 @@ import { ViewProvider } from "./core/webview"
 import { createCodeyAPI } from "./exports"
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
 import { SIDEBAR_ID, TAB_PANEL_ID } from "./utils/const"
-import "./utils/path" // necessary to have access to String.prototype.toPosix
-
-/*
-Built using https://github.com/microsoft/vscode-webview-ui-toolkit
-
-Inspired by
-https://github.com/microsoft/vscode-webview-ui-toolkit-samples/tree/main/default/weather-webview
-https://github.com/microsoft/vscode-webview-ui-toolkit-samples/tree/main/frameworks/hello-world-react-cra
-
-*/
+import "./utils/path"
 
 let outputChannel: vscode.OutputChannel
 
 // This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel("Codey")
   context.subscriptions.push(outputChannel)
@@ -49,7 +39,6 @@ export function activate(context: vscode.ExtensionContext) {
     // (this example uses webviewProvider activation event which is necessary to deserialize cached webview, but since we use retainContextWhenHidden, we don't need to use that event)
     // https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
     const tabProvider = new ViewProvider(context, outputChannel)
-    //const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined
     const lastCol = Math.max(...vscode.window.visibleTextEditors.map((editor) => editor.viewColumn || 0))
 
     // Check if there are any visible text editors, otherwise open a new group to the right
@@ -64,7 +53,6 @@ export function activate(context: vscode.ExtensionContext) {
       retainContextWhenHidden: true,
       localResourceRoots: [context.extensionUri],
     })
-    // TODO: use better svg icon with light and dark variants (see https://stackoverflow.com/questions/58365687/vscode-extension-iconpath)
 
     panel.iconPath = {
       light: vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "robot_panel_light.png"),
@@ -78,6 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   context.subscriptions.push(vscode.commands.registerCommand("codey.popoutButtonClicked", openCodeyInNewTab))
+
   context.subscriptions.push(vscode.commands.registerCommand("codey.openInNewTab", openCodeyInNewTab))
 
   context.subscriptions.push(
@@ -109,7 +98,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider(DIFF_VIEW_URI_SCHEME, diffContentProvider)
   )
 
-  // URI Handler
   const handleUri = async (uri: vscode.Uri) => {
     const path = uri.path
     const query = new URLSearchParams(uri.query.replace(/\+/g, "%2B"))
@@ -129,6 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         break
     }
   }
+
   context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))
 
   return createCodeyAPI(outputChannel, sidebarProvider)

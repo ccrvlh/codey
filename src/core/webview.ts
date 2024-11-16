@@ -36,35 +36,36 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     this.configManager = new ConfigManager(context)
   }
 
+  // Builders
+
   /**
-   * Disposes of the CodeyProvider instance, releasing all resources and cleaning up.
-   * VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system.
-   * This applies to event listening, commands, interacting with the UI, etc.
-   * The disposal process cleans tasks, and disposes the webview, workspace tracker, and all other registered disposables.
+   * Initializes the Codey agent with a specified task and optional images.
    *
-   * https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
-   * https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
-   *
-   * @returns {Promise<void>} A promise that resolves when the disposal process is complete.
+   * @param {string} [task] - The task to initialize the agent with.
+   * @param {string[]} [images] - An optional array of image URLs to be used by the agent.
+   * @returns {Promise<void>} A promise that resolves when the initialization is complete.
    */
-  async dispose(): Promise<void> {
-    this.outputChannel.appendLine("Disposing CodeyProvider...")
+  async initCodeyWithTask(task?: string, images?: string[]): Promise<void> {
     await this.clearTask()
-    this.outputChannel.appendLine("Cleared task")
-    if (this.view && "dispose" in this.view) {
-      this.view.dispose()
-      this.outputChannel.appendLine("Disposed webview")
-    }
-    while (this.disposables.length) {
-      const x = this.disposables.pop()
-      if (x) {
-        x.dispose()
-      }
-    }
-    this.workspaceTracker?.dispose()
-    this.workspaceTracker = undefined
-    this.outputChannel.appendLine("Disposed all disposables")
-    ViewProvider.activeInstances.delete(this)
+    const { apiConfiguration } = await this.getState()
+    const config = await this.configManager.getConfig()
+    this.agent = new Agent(this, apiConfiguration, config, task, images, undefined)
+  }
+
+  /**
+   * Initializes the Codey agent with a given history item.
+   *
+   * This method clears any existing tasks, retrieves the current state and configuration,
+   * and then creates a new instance of the `Agent` class using the provided history item.
+   *
+   * @param historyItem - The history item to initialize the Codey agent with.
+   * @returns A promise that resolves when the initialization is complete.
+   */
+  async initCodeyWithHistoryItem(historyItem: HistoryItem) {
+    await this.clearTask()
+    const { apiConfiguration } = await this.getState()
+    const config = await this.configManager.getConfig()
+    this.agent = new Agent(this, apiConfiguration, config, undefined, undefined, historyItem)
   }
 
   /**
@@ -148,36 +149,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     this.outputChannel.appendLine("Webview view resolved")
   }
 
-  /**
-   * Initializes the Codey agent with a specified task and optional images.
-   *
-   * @param {string} [task] - The task to initialize the agent with.
-   * @param {string[]} [images] - An optional array of image URLs to be used by the agent.
-   * @returns {Promise<void>} A promise that resolves when the initialization is complete.
-   */
-  async initCodeyWithTask(task?: string, images?: string[]): Promise<void> {
-    await this.clearTask()
-    const { apiConfiguration } = await this.getState()
-    const config = await this.configManager.getConfig()
-    this.agent = new Agent(this, apiConfiguration, config, task, images, undefined)
-  }
-
-  /**
-   * Initializes the Codey agent with a given history item.
-   *
-   * This method clears any existing tasks, retrieves the current state and configuration,
-   * and then creates a new instance of the `Agent` class using the provided history item.
-   *
-   * @param historyItem - The history item to initialize the Codey agent with.
-   * @returns A promise that resolves when the initialization is complete.
-   */
-  async initCodeyWithHistoryItem(historyItem: HistoryItem) {
-    await this.clearTask()
-    const { apiConfiguration } = await this.getState()
-    const config = await this.configManager.getConfig()
-    this.agent = new Agent(this, apiConfiguration, config, undefined, undefined, historyItem)
-  }
-
   async postMessageToWebview(message: ExtensionMessage) {
     // Send any JSON serializable data to the react app
     await this.view?.webview.postMessage(message)
@@ -192,6 +163,11 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 
   /**
    * Defines and returns the HTML that should be rendered within the webview panel.
+   * Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
+   * The codicon font from the React build output
+   * https://github.com/microsoft/vscode-extension-samples/blob/main/webview-codicons-sample/src/extension.ts
+   * we installed this package in the extension so that we can access it how its intended from the extension (the font file is likely bundled in vscode)
+   * and we just import the css fileinto our react app we don't have access to it don't forget to add font-src ${webview.cspSource};
    *
    * @remarks This is also the place where references to the React webview build files
    * are created and inserted into the webview HTML.
@@ -202,18 +178,8 @@ export class ViewProvider implements vscode.WebviewViewProvider {
    * rendered within the webview panel
    */
   private getHtmlContent(webview: vscode.Webview): string {
-    // Get the local path to main script run in the webview,
-    // then convert it to a uri we can use in the webview.
-
-    // The CSS file from the React build output
     const stylesUri = getUri(webview, this.context.extensionUri, ["webview", "build", "static", "css", "main.css"])
-    // The JS file from the React build output
     const scriptUri = getUri(webview, this.context.extensionUri, ["webview", "build", "static", "js", "main.js"])
-
-    // The codicon font from the React build output
-    // https://github.com/microsoft/vscode-extension-samples/blob/main/webview-codicons-sample/src/extension.ts
-    // we installed this package in the extension so that we can access it how its intended from the extension (the font file is likely bundled in vscode), and we just import the css fileinto our react app we don't have access to it
-    // don't forget to add font-src ${webview.cspSource};
     const codiconsUri = getUri(webview, this.context.extensionUri, [
       "node_modules",
       "@vscode",
@@ -221,48 +187,27 @@ export class ViewProvider implements vscode.WebviewViewProvider {
       "dist",
       "codicon.css",
     ])
-
-    // const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "main.js"))
-
-    // const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "reset.css"))
-    // const styleVSCodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "vscode.css"))
-
-    // // Same for stylesheet
-    // const stylesheetUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "assets", "main.css"))
-
-    // Use a nonce to only allow a specific script to be run.
-    /*
-        content security policy of your webview to only allow scripts that have a specific nonce
-        create a content security policy meta tag so that only loading scripts with a nonce is allowed
-        As your extension grows you will likely want to add custom styles, fonts, and/or images to your webview. If you do, you will need to update the content security policy meta tag to explicity allow for these resources. E.g.
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; font-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
-    - 'unsafe-inline' is required for styles due to vscode-webview-toolkit's dynamic style injection
-    - since we pass base64 images to the webview, we need to specify img-src ${webview.cspSource} data:;
-
-        in meta tag we add nonce attribute: A cryptographic nonce (only used once) to allow scripts. The server must generate a unique nonce value each time it transmits a policy. It is critical to provide a nonce that cannot be guessed as bypassing a resource's policy is otherwise trivial.
-        */
     const nonce = getNonce()
 
-    // Tip: Install the es6-string-html VS Code extension to enable code highlighting below
     return /*html*/ `
-        <!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
-            <meta name="theme-color" content="#000000">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:; script-src 'nonce-${nonce}';">
-            <link rel="stylesheet" type="text/css" href="${stylesUri}">
-      <link href="${codiconsUri}" rel="stylesheet" />
-            <title>Codey</title>
-          </head>
-          <body>
-            <noscript>You need to enable JavaScript to run this app.</noscript>
-            <div id="root"></div>
-            <script nonce="${nonce}" src="${scriptUri}"></script>
-          </body>
-        </html>
-      `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+          <meta name="theme-color" content="#000000">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:; script-src 'nonce-${nonce}';">
+          <link rel="stylesheet" type="text/css" href="${stylesUri}">
+          <link href="${codiconsUri}" rel="stylesheet" />
+          <title>Codey</title>
+        </head>
+        <body>
+          <noscript>You need to enable JavaScript to run this app.</noscript>
+          <div id="root"></div>
+          <script nonce="${nonce}" src="${scriptUri}"></script>
+        </body>
+      </html>
+    `
   }
 
   /**
@@ -436,6 +381,12 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             break
           case "cancelTask":
             if (this.agent) {
+              // 'abandoned' will prevent this codey instance from affecting future codey instance gui.
+              // this may happen if its hanging on a streaming request
+              // clears task again, so we need to abortTask manually above
+              // new Codey instance will post state when it's ready. having this here sent an empty messages
+              // array to webview leading to virtuoso having to reload the entire list
+              // await this.postStateToWebview()
               const { historyItem } = await this.getTaskWithId(this.agent.taskId)
               this.agent.abortTask()
               await pWaitFor(() => this.agent === undefined || this.agent.didFinishAborting, {
@@ -444,16 +395,11 @@ export class ViewProvider implements vscode.WebviewViewProvider {
                 console.error("Failed to abort task")
               })
               if (this.agent) {
-                // 'abandoned' will prevent this codey instance from affecting future codey instance gui. this may happen if its hanging on a streaming request
                 this.agent.abandoned = true
               }
-              await this.initCodeyWithHistoryItem(historyItem) // clears task again, so we need to abortTask manually above
-              // await this.postStateToWebview() // new Codey instance will post state when it's ready. having this here sent an empty messages array to webview leading to virtuoso having to reload the entire list
+              await this.initCodeyWithHistoryItem(historyItem)
             }
-
             break
-          // Add more switch case statements here as more webview message commands
-          // are created within the webview context (i.e. inside media/main.js)
         }
       },
       null,
@@ -501,7 +447,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     if (this.agent) {
       this.agent.api = buildApiHandler({ apiProvider: openrouter, openRouterApiKey: apiKey })
     }
-    // await this.postMessageToWebview({ type: "action", action: "settingsButtonClicked" }) // bad ux if user is on welcome
   }
 
   async readOpenRouterModels(): Promise<Record<string, ModelInfo> | undefined> {
@@ -526,32 +471,6 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     let models: Record<string, ModelInfo> = {}
     try {
       const response = await axios.get("https://openrouter.ai/api/v1/models")
-      /*
-      {
-        "id": "anthropic/claude-3.5-sonnet",
-        "name": "Anthropic: Claude 3.5 Sonnet",
-        "created": 1718841600,
-        "description": "Claude 3.5 Sonnet delivers better-than-Opus capabilities, faster-than-Sonnet speeds, at the same Sonnet prices. Sonnet is particularly good at:\n\n- Coding: Autonomously writes, edits, and runs code with reasoning and troubleshooting\n- Data science: Augments human data science expertise; navigates unstructured data while using multiple tools for insights\n- Visual processing: excelling at interpreting charts, graphs, and images, accurately transcribing text to derive insights beyond just the text alone\n- Agentic tasks: exceptional tool use, making it great at agentic tasks (i.e. complex, multi-step problem solving tasks that require engaging with other systems)\n\n#multimodal",
-        "context_length": 200000,
-        "architecture": {
-          "modality": "text+image-\u003Etext",
-          "tokenizer": "Claude",
-          "instruct_type": null
-        },
-        "pricing": {
-          "prompt": "0.000003",
-          "completion": "0.000015",
-          "image": "0.0048",
-          "request": "0"
-        },
-        "top_provider": {
-          "context_length": 200000,
-          "max_completion_tokens": 8192,
-          "is_moderated": true
-        },
-        "per_request_limits": null
-      },
-      */
       if (response.data?.data) {
         const rawModels = response.data.data
         const parsePrice = (price: any) => {
@@ -876,7 +795,36 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     return await this.context.secrets.get(key)
   }
 
-  // dev
+  /**
+   * Disposes of the CodeyProvider instance, releasing all resources and cleaning up.
+   * VSCode extensions use the disposable pattern to clean up resources when the sidebar/editor tab is closed by the user or system.
+   * This applies to event listening, commands, interacting with the UI, etc.
+   * The disposal process cleans tasks, and disposes the webview, workspace tracker, and all other registered disposables.
+   *
+   * https://vscode-docs.readthedocs.io/en/stable/extensions/patterns-and-principles/
+   * https://github.com/microsoft/vscode-extension-samples/blob/main/webview-sample/src/extension.ts
+   *
+   * @returns {Promise<void>} A promise that resolves when the disposal process is complete.
+   */
+  async dispose(): Promise<void> {
+    this.outputChannel.appendLine("Disposing CodeyProvider...")
+    await this.clearTask()
+    this.outputChannel.appendLine("Cleared task")
+    if (this.view && "dispose" in this.view) {
+      this.view.dispose()
+      this.outputChannel.appendLine("Disposed webview")
+    }
+    while (this.disposables.length) {
+      const x = this.disposables.pop()
+      if (x) {
+        x.dispose()
+      }
+    }
+    this.workspaceTracker?.dispose()
+    this.workspaceTracker = undefined
+    this.outputChannel.appendLine("Disposed all disposables")
+    ViewProvider.activeInstances.delete(this)
+  }
 
   async resetState() {
     vscode.window.showInformationMessage("Resetting state...")
