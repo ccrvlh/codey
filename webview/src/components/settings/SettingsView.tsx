@@ -11,7 +11,7 @@ import { useConfig } from "../../context/ConfigContext"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "../../utils/validators"
 import { vscode } from "../../utils/vscode"
-import APIOptions from "./APIOptions"
+import APIOptions from "./ApiOptions"
 
 const IS_DEV = true // FIXME: use flags when packaging
 

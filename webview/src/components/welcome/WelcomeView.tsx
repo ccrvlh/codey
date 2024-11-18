@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration } from "../../utils/validators"
 import { vscode } from "../../utils/vscode"
-import APIOptions from "../settings/APIOptions"
+import APIOptions from "../settings/ApiOptions"
 
 const WelcomeView = () => {
   const { apiConfiguration } = useExtensionState()
