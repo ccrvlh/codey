@@ -17,14 +17,14 @@ import { GlobalFileNames } from "../utils/const"
 import { fileExistsAtPath } from "../utils/fs"
 import { findLast, getNonce, getUri } from "../utils/helpers"
 import { ConfigManager } from "./config"
-import { Agent } from "./main"
+import { Codey } from "./main"
 import { openMention } from "./mentions"
 
 export class ViewProvider implements vscode.WebviewViewProvider {
   private static activeInstances: Set<ViewProvider> = new Set()
   private disposables: vscode.Disposable[] = []
   private view?: vscode.WebviewView | vscode.WebviewPanel
-  private agent?: Agent
+  private codey?: Codey
   private configManager: ConfigManager
   private workspaceTracker?: WorkspaceTracker
   private latestAnnouncementId = "oct-9-2024"
@@ -49,7 +49,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     await this.clearTask()
     const { apiConfiguration } = await this.getState()
     const config = await this.configManager.getConfig()
-    this.agent = new Agent(this, apiConfiguration, config, task, images, undefined)
+    this.codey = new Codey(this, apiConfiguration, config, task, images, undefined)
   }
 
   /**
@@ -65,7 +65,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     await this.clearTask()
     const { apiConfiguration } = await this.getState()
     const config = await this.configManager.getConfig()
-    this.agent = new Agent(this, apiConfiguration, config, undefined, undefined, historyItem)
+    this.codey = new Codey(this, apiConfiguration, config, undefined, undefined, historyItem)
   }
 
   /**
@@ -290,8 +290,8 @@ export class ViewProvider implements vscode.WebviewViewProvider {
               await this.updateGlobalState("azureApiVersion", azureApiVersion)
               await this.updateGlobalState("openRouterModelId", openRouterModelId)
               await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
-              if (this.agent) {
-                this.agent.api = buildApiHandler(message.apiConfiguration)
+              if (this.codey) {
+                this.codey.api = buildApiHandler(message.apiConfiguration)
               }
             }
             await this.postStateToWebview()
@@ -301,28 +301,28 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             break
           case "alwaysAllowReadOnly":
             await this.updateGlobalState("alwaysAllowReadOnly", message.bool ?? undefined)
-            if (this.agent) {
-              this.agent.config.alwaysAllowReadOnly = message.bool ?? false
+            if (this.codey) {
+              this.codey.config.alwaysAllowReadOnly = message.bool ?? false
             }
             await this.postStateToWebview()
             break
           case "exportIncludesSystemPrompt":
             await this.updateGlobalState("exportIncludesSystemPrompt", message.bool ?? undefined)
             console.log("exportIncludesSystemPrompt", message.bool)
-            if (this.agent) {
-              this.agent.config.exportIncludesSystemPrompt = message.bool ?? false
+            if (this.codey) {
+              this.codey.config.exportIncludesSystemPrompt = message.bool ?? false
             }
             await this.postStateToWebview()
             break
           case "editAutoScroll":
             await this.updateGlobalState("editAutoScroll", message.bool ?? undefined)
-            if (this.agent) {
-              this.agent.config.editAutoScroll = message.bool ?? false
+            if (this.codey) {
+              this.codey.config.editAutoScroll = message.bool ?? false
             }
             await this.postStateToWebview()
             break
           case "askResponse":
-            this.agent?.handleWebviewUserResponse(message.askResponse!, message.text, message.images)
+            this.codey?.handleWebviewUserResponse(message.askResponse!, message.text, message.images)
             break
           case "clearTask":
             // newTask will start a new task with a given task text, while clear task resets the current session and allows for a new task to be started
@@ -338,14 +338,14 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             await this.postMessageToWebview({ type: "selectedImages", images })
             break
           case "exportCurrentTask":
-            const currentTaskId = this.agent?.taskId
+            const currentTaskId = this.codey?.taskId
             if (currentTaskId) {
               this.exportTaskWithId(currentTaskId)
             }
             break
           case "exportTaskDebug":
-            if (this.agent?.taskId) {
-              this.exportTaskDebug(this.agent?.taskId)
+            if (this.codey?.taskId) {
+              this.exportTaskDebug(this.codey?.taskId)
             }
             break
           case "showTaskWithId":
@@ -380,22 +380,22 @@ export class ViewProvider implements vscode.WebviewViewProvider {
             openMention(message.text)
             break
           case "cancelTask":
-            if (this.agent) {
+            if (this.codey) {
               // 'abandoned' will prevent this codey instance from affecting future codey instance gui.
               // this may happen if its hanging on a streaming request
               // clears task again, so we need to abortTask manually above
               // new Codey instance will post state when it's ready. having this here sent an empty messages
               // array to webview leading to virtuoso having to reload the entire list
               // await this.postStateToWebview()
-              const { historyItem } = await this.getTaskWithId(this.agent.taskId)
-              this.agent.abortTask()
-              await pWaitFor(() => this.agent === undefined || this.agent.didFinishAborting, {
+              const { historyItem } = await this.getTaskWithId(this.codey.taskId)
+              this.codey.abortTask()
+              await pWaitFor(() => this.codey === undefined || this.codey.didFinishAborting, {
                 timeout: 3_000,
               }).catch(() => {
                 console.error("Failed to abort task")
               })
-              if (this.agent) {
-                this.agent.abandoned = true
+              if (this.codey) {
+                this.codey.abandoned = true
               }
               await this.initCodeyWithHistoryItem(historyItem)
             }
@@ -444,8 +444,8 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     await this.updateGlobalState("apiProvider", openrouter)
     await this.storeSecret("openRouterApiKey", apiKey)
     await this.postStateToWebview()
-    if (this.agent) {
-      this.agent.api = buildApiHandler({ apiProvider: openrouter, openRouterApiKey: apiKey })
+    if (this.codey) {
+      this.codey.api = buildApiHandler({ apiProvider: openrouter, openRouterApiKey: apiKey })
     }
   }
 
@@ -571,7 +571,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
   }
 
   async showTaskWithId(id: string) {
-    if (id !== this.agent?.taskId) {
+    if (id !== this.codey?.taskId) {
       // non-current task
       const { historyItem } = await this.getTaskWithId(id)
       await this.initCodeyWithHistoryItem(historyItem) // clears existing task
@@ -581,16 +581,16 @@ export class ViewProvider implements vscode.WebviewViewProvider {
 
   async exportTaskWithId(id: string) {
     const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-    await downloadTask(historyItem, apiConversationHistory, this.agent?.config.exportIncludesSystemPrompt)
+    await downloadTask(historyItem, apiConversationHistory, this.codey?.config.exportIncludesSystemPrompt)
   }
 
   async exportTaskDebug(id: string) {
     const { historyItem, apiConversationHistory } = await this.getTaskWithId(id)
-    await downloadTaskDebug(historyItem, apiConversationHistory, this.agent?.config.exportIncludesSystemPrompt)
+    await downloadTaskDebug(historyItem, apiConversationHistory, this.codey?.config.exportIncludesSystemPrompt)
   }
 
   async deleteTaskWithId(id: string) {
-    if (id === this.agent?.taskId) {
+    if (id === this.codey?.taskId) {
       await this.clearTask()
     }
 
@@ -625,8 +625,8 @@ export class ViewProvider implements vscode.WebviewViewProvider {
   }
 
   async clearTask() {
-    this.agent?.abortTask()
-    this.agent = undefined // removes reference to it, so once promises end it will be garbage collected
+    this.codey?.abortTask()
+    this.codey = undefined // removes reference to it, so once promises end it will be garbage collected
   }
 
   async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
@@ -664,7 +664,7 @@ export class ViewProvider implements vscode.WebviewViewProvider {
       alwaysAllowReadOnly,
       editAutoScroll,
       uriScheme: vscode.env.uriScheme,
-      codeyMessages: this.agent?.codeyMessages || [],
+      codeyMessages: this.codey?.codeyMessages || [],
       taskHistory: (taskHistory || []).filter((item) => item.ts && item.task).sort((a, b) => b.ts - a.ts),
       shouldShowAnnouncement: lastShownAnnouncementId !== this.latestAnnouncementId,
     }
@@ -844,9 +844,9 @@ export class ViewProvider implements vscode.WebviewViewProvider {
     for (const key of secretKeys) {
       await this.storeSecret(key, undefined)
     }
-    if (this.agent) {
-      this.agent.abortTask()
-      this.agent = undefined
+    if (this.codey) {
+      this.codey.abortTask()
+      this.codey = undefined
     }
     vscode.window.showInformationMessage("State reset")
     await this.postStateToWebview()

@@ -17,17 +17,17 @@ import { fileExistsAtPath } from "../utils/fs"
 import { getReadablePath } from "../utils/path"
 import { AgentConfig } from "./config"
 import { responseTemplates } from "./formatter"
-import { Agent } from "./main"
+import { Codey } from "./main"
 
 export class ToolExecutor {
   private diffViewProvider: DiffViewProvider
   private cwd: string
-  private codey: Agent
+  private codey: Codey
   private config: AgentConfig
   private isExecutingTool: boolean = false
 
-  constructor(agent: Agent, config: AgentConfig, cwd: string, diffViewProvider: DiffViewProvider) {
-    this.codey = agent
+  constructor(codey: Codey, config: AgentConfig, cwd: string, diffViewProvider: DiffViewProvider) {
+    this.codey = codey
     this.config = config
     this.cwd = cwd
     this.diffViewProvider = diffViewProvider
