@@ -866,7 +866,51 @@ export class ToolExecutor {
 
       const didApprove = await this.askApproval(block, "tool", completeMessage);
       if (!didApprove) {
-        await this.diffViewProvider.revertChanges();
+        // Iterate through all merge conflict blocks and revert to the "current" content
+        let fullContent = document.getText();
+        const mergeConflictStart = "<<<<<<< SEARCH\n";
+        const mergeSeparator = "=======\n";
+        const mergeConflictEnd = ">>>>>>> REPLACE";
+
+        let mergeStartIndex = fullContent.indexOf(mergeConflictStart);
+
+        while (mergeStartIndex !== -1) {
+          const mergeEndIndex = fullContent.indexOf(mergeConflictEnd, mergeStartIndex) + mergeConflictEnd.length;
+          const currentEndIndex = fullContent.indexOf(mergeSeparator, mergeStartIndex);
+
+          if (mergeEndIndex !== -1 && currentEndIndex !== -1) {
+            // Extract the "current" content
+            const currentContent = fullContent.substring(
+              mergeStartIndex + mergeConflictStart.length,
+              currentEndIndex
+            ).trim();
+
+            // Preserve and reapply indentation to each line of the "current" content
+            const startLine = document.positionAt(mergeStartIndex).line;
+            const lineText = document.lineAt(startLine).text;
+            const indentation = lineText.match(/^\s*/)?.[0] || "";
+
+            const indentedCurrentContent = currentContent
+              .split("\n")
+              .map((line) => (line.trim() ? indentation + line : line))
+              .join("\n");
+
+            await editor.edit((editBuilder) => {
+              const entireRange = new vscode.Range(
+                document.positionAt(mergeStartIndex),
+                document.positionAt(mergeEndIndex)
+              );
+              editBuilder.replace(entireRange, indentedCurrentContent);
+            });
+
+            // Update fullContent to reflect the changes for subsequent iterations
+            fullContent = document.getText();
+            mergeStartIndex = fullContent.indexOf(mergeConflictStart, mergeStartIndex);
+          } else {
+            break; // Stop if the structure is incomplete
+          }
+        }
+        await this.diffViewProvider.reset();
         return;
       }
 
