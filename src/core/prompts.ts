@@ -234,8 +234,7 @@ const INSERT_CODE_BLOCK_TOOL = (cwd: string) => dedent`
 const SEARCH_REPLACE_TOOL = (cwd: string) => dedent`
   ## search_replace
   Description: Request to replace existing code using search and replace blocks. This tool allows for precise, surgical replaces to files by specifying exactly what content to search for and what to replace it with.
-  Only use this tool when you need to replace/fix existing code. If you are just adding new code, use the insert_code_block tool.
-  The tool will maintain proper indentation and formatting while making changes. Only a single operation is allowed per tool use.
+  Only use this tool when you need to replace/fix existing code. If you are just adding new code, use the insert_code_block tool. When replacing multiple blocks at the same time, separate the blocks by a new line \n.
   The SEARCH section must exactly match existing content including whitespace and indentation.
   Parameters:
   - content: (required) The search/replace blocks defining the changes.

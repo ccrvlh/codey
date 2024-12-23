@@ -728,184 +728,175 @@ export class ToolExecutor {
   }
 
   async searchReplaceTool(block: ToolUse) {
-    if (!block.partial) console.debug("[DEBUG] Search and replace tool running...")
-    const contentParam: string | undefined = block.params.content
-    const relPath: string | undefined = block.params.path
-    const cleanPath = this.removeClosingTag(block, "path", relPath)
+    if (!block.partial) console.debug("[DEBUG] Search and replace tool running...");
+    const contentParam: string | undefined = block.params.content;
+    const relPath: string | undefined = block.params.path;
+    const cleanPath = this.removeClosingTag(block, "path", relPath);
     const sharedMessageProps: CodeySayTool = {
       tool: "searchReplace",
       path: getReadablePath(this.cwd, cleanPath),
-    }
+    };
 
     if (!contentParam) {
-      console.warn("[WARN] Content parameter is missing. Waiting for the full content to come in.")
-      return
+      console.warn("[WARN] Content parameter is missing. Waiting for the full content to come in.");
+      return;
     }
 
     try {
-      const content = this.cleanUpContent(contentParam)
+      const content = this.cleanUpContent(contentParam);
       if (block.partial) {
         const partialMessage = JSON.stringify({
           ...sharedMessageProps,
           content: undefined,
-        } satisfies CodeySayTool)
-        await this.codey.askUser("tool", partialMessage, block.partial).catch((e) => { })
-        return
+        } satisfies CodeySayTool);
+        await this.codey
+          .askUser("tool", partialMessage, block.partial)
+          .catch((e) => { });
+        return;
       }
 
-      const lines = content.split("\n")
-      const filePath = lines[0]?.trim()
-      console.debug("[DEBUG] Replace content on file:", filePath)
+      const lines = content.split("\n");
+      const filePath = lines[0]?.trim();
+      console.debug("[DEBUG] Replace content on file:", filePath);
       if (!filePath) {
-        await this.handleError(block, "performing search and replace", new Error("file path not provided"))
-        return
+        await this.handleError(block, "performing search and replace", new Error("file path not provided"));
+        return;
       }
 
-      // Find the sections
-      let searchContent = ""
-      let replaceContent = ""
-      let currentSection: "none" | "search" | "replace" = "none"
+      // Extract multiple search-replace blocks
+      const blocks: { search: string; replace: string }[] = [];
+      let currentSection: "none" | "search" | "replace" = "none";
+      let searchContent = "";
+      let replaceContent = "";
 
       for (let i = 1; i < lines.length; i++) {
-        const line = lines[i]
+        const line = lines[i];
 
         if (line.match(/^<{5,9} SEARCH\s*$/)) {
-          currentSection = "search"
-          continue
+          if (currentSection === "replace" && searchContent && replaceContent) {
+            blocks.push({ search: searchContent, replace: replaceContent });
+            searchContent = "";
+            replaceContent = "";
+          }
+          currentSection = "search";
+          continue;
         }
         if (line.match(/^={5,9}\s*$/)) {
-          currentSection = "replace"
-          continue
+          currentSection = "replace";
+          continue;
         }
         if (line.match(/^>{5,9} REPLACE\s*$/)) {
-          break
+          if (currentSection === "replace" && searchContent && replaceContent) {
+            blocks.push({ search: searchContent, replace: replaceContent });
+            searchContent = "";
+            replaceContent = "";
+          }
+          currentSection = "none";
+          continue;
         }
 
         // Add lines to appropriate section
         if (currentSection === "search") {
-          searchContent += (searchContent ? "\n" : "") + line
+          searchContent += (searchContent ? "\n" : "") + line;
         } else if (currentSection === "replace") {
-          replaceContent += (replaceContent ? "\n" : "") + line
+          replaceContent += (replaceContent ? "\n" : "") + line;
         }
       }
 
-      // Validate we have all required parts
-      if (!searchContent || !replaceContent) {
-        console.debug(
-          "[DEBUG] Missing required search/replace content parts... Waiting for the full content to come in."
-        )
-        return
+      if (searchContent && replaceContent) {
+        blocks.push({ search: searchContent, replace: replaceContent });
       }
 
-      const absolutePath = path.resolve(this.cwd, filePath)
-      const originalContent = await fs.readFile(absolutePath, "utf8")
+      if (blocks.length === 0) {
+        console.debug("[DEBUG] No valid search/replace blocks found. Waiting for the full content to come in.");
+        return;
+      }
+
+      const absolutePath = path.resolve(this.cwd, filePath);
+      const originalContent = await fs.readFile(absolutePath, "utf8");
 
       // Open the file in diff view
-      const document = await vscode.workspace.openTextDocument(absolutePath)
-      const editor = await vscode.window.showTextDocument(document)
-      console.debug("[DEBUG] Opened file in editor.")
-      const fileContent = document.getText()
+      const document = await vscode.workspace.openTextDocument(absolutePath);
+      const editor = await vscode.window.showTextDocument(document);
+      console.debug("[DEBUG] Opened file in editor.");
+      let fileContent = document.getText();
 
-      // Find the index of the content to search
-      const searchIndex = fileContent.indexOf(searchContent)
-      console.debug("[DEBUG] Search content index:", searchIndex)
+      for (const { search, replace } of blocks) {
+        const searchIndex = fileContent.indexOf(search);
+        console.debug("[DEBUG] Search content index:", searchIndex);
 
-      if (searchIndex === -1) {
-        console.error("[ERROR] Search content not found in file.")
-        const err = new Error(
-          "search content not found in file. make sure you're using the right search content, and the right file path."
-        )
-        await this.handleError(block, "couldn't find search content", err)
-        await this.diffViewProvider.reset()
-        return
+        if (searchIndex === -1) {
+          console.error("[ERROR] Search content not found in file:", search);
+          const err = new Error(
+            "search content not found in file. make sure you're using the right search content, and the right file path."
+          );
+          await this.handleError(block, "couldn't find search content", err);
+          await this.diffViewProvider.reset();
+          return;
+        }
+
+        // Create positions and range for the search content
+        const startPos = document.positionAt(searchIndex);
+        const endPos = document.positionAt(searchIndex + search.length);
+        const range = new vscode.Range(startPos, endPos);
+
+        // Apply the replacement with the specified format
+        await editor.edit((editBuilder) => {
+          editBuilder.insert(range.start, `<<<<<<< SEARCH\n`);
+          editBuilder.insert(range.end, `\n=======\n${replace}\n>>>>>>> REPLACE`);
+        });
+        console.debug("[DEBUG] Applied search & replace diff in editor.");
+        fileContent = document.getText();
       }
 
-      // Create positions and range for the search content
-      const startPos = document.positionAt(searchIndex)
-      const endPos = document.positionAt(searchIndex + searchContent.length)
-      const range = new vscode.Range(startPos, endPos)
-
-      // Apply the replacement with the specified format
-      await editor.edit((editBuilder) => {
-        editBuilder.insert(range.start, `<<<<<<< SEARCH\n`)
-        editBuilder.insert(range.end, `\n=======\n${replaceContent}\n>>>>>>> REPLACE`)
-      })
-      console.debug("[DEBUG] Applied search & replace diff in editor.")
-
-      // Move the cursor to the beginning of the `replaceContent`
-      const dividerLength = 9 // Length of `=======\n`
-      const replaceStartPos = document.positionAt(searchIndex + searchContent.length + dividerLength)
-      editor.selection = new vscode.Selection(replaceStartPos, replaceStartPos)
-      editor.revealRange(new vscode.Range(replaceStartPos, replaceStartPos), vscode.TextEditorRevealType.InCenter)
-      console.debug("[DEBUG] Set cursor position to the start of the replaced content.")
+      // Move cursor to the start of the first replacement
+      const firstReplacePos = fileContent.indexOf("=======\n") + "=======\n".length;
+      if (firstReplacePos !== -1) {
+        const replaceStartPos = document.positionAt(firstReplacePos);
+        editor.selection = new vscode.Selection(replaceStartPos, replaceStartPos);
+        editor.revealRange(new vscode.Range(replaceStartPos, replaceStartPos), vscode.TextEditorRevealType.InCenter);
+        console.debug("[DEBUG] Set cursor position to the start of the replaced content.");
+      }
 
       const completeMessage = JSON.stringify({
         tool: "searchReplace",
         path: filePath,
         diff: responseTemplates.createPrettyPatch(filePath, originalContent, document.getText()),
-      } satisfies CodeySayTool)
+      } satisfies CodeySayTool);
 
-      const didApprove = await this.askApproval(block, "tool", completeMessage)
+      const didApprove = await this.askApproval(block, "tool", completeMessage);
       if (!didApprove) {
-        await this.diffViewProvider.revertChanges()
-        return
+        await this.diffViewProvider.revertChanges();
+        return;
       }
 
-      // After approval, clean up the merge conflict notation
-      const fullContent = document.getText()
-      const mergeStartIndex = fullContent.indexOf("<<<<<<< SEARCH\n")
-      const mergeEndIndex = fullContent.indexOf(">>>>>>> REPLACE") + ">>>>>>> REPLACE".length
+      // After approval, clean up the merge conflict notation for all blocks
+      let fullContent = document.getText();
+      for (const { search } of blocks) {
+        const mergeStartIndex = fullContent.indexOf("<<<<<<< SEARCH\n");
+        const mergeEndIndex = fullContent.indexOf(">>>>>>> REPLACE") + ">>>>>>> REPLACE".length;
 
-      if (mergeStartIndex !== -1 && mergeEndIndex !== -1) {
-        const replaceStart = fullContent.indexOf("=======\n") + "=======\n".length
-        const replaceEnd = fullContent.indexOf("\n>>>>>>> REPLACE")
-        const cleanedReplacement = fullContent.substring(replaceStart, replaceEnd)
+        if (mergeStartIndex !== -1 && mergeEndIndex !== -1) {
+          const replaceStart = fullContent.indexOf("=======\n") + "=======\n".length;
+          const replaceEnd = fullContent.indexOf("\n>>>>>>> REPLACE");
+          const cleanedReplacement = fullContent.substring(replaceStart, replaceEnd);
 
-        await editor.edit((editBuilder) => {
-          const entireRange = new vscode.Range(document.positionAt(mergeStartIndex), document.positionAt(mergeEndIndex))
-          editBuilder.replace(entireRange, cleanedReplacement)
-        })
-
-        await document.save()
-        const response = `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`
-        this.codey.pushToolResult(block, response)
-        await this.diffViewProvider.reset()
-        return
+          await editor.edit((editBuilder) => {
+            const entireRange = new vscode.Range(document.positionAt(mergeStartIndex), document.positionAt(mergeEndIndex));
+            editBuilder.replace(entireRange, cleanedReplacement);
+          });
+          fullContent = document.getText();
+        }
       }
 
-      // Show changes and get approval
-      const { newProblemsMessage, userEdits } = await this.diffViewProvider.saveChanges()
-      console.debug("Saved changes. New problems message:", newProblemsMessage, "User edits:", userEdits)
-      this.codey.didEditFile = true
-
-      if (!userEdits) {
-        this.codey.pushToolResult(
-          block,
-          `Search and replace completed successfully in ${filePath}.${newProblemsMessage}`
-        )
-        await this.diffViewProvider.reset()
-        return
-      }
-
-      // Handle user edits if any
-      const userFeedbackDiff = JSON.stringify({
-        tool: "searchReplace",
-        path: filePath,
-        diff: userEdits,
-      } satisfies CodeySayTool)
-
-      await this.codey.sendMessage("user_feedback_diff", userFeedbackDiff)
-      this.codey.pushToolResult(
-        block,
-        `The user made the following updates:\n\n${userEdits}\n\n` +
-        `Changes applied successfully to ${filePath}.${newProblemsMessage}`
-      )
-      await this.diffViewProvider.reset()
+      await document.save();
+      const response = `Search and replace completed successfully in ${filePath}. The merge conflict notation has been cleaned up and the replacement content has been saved.`;
+      this.codey.pushToolResult(block, response);
+      await this.diffViewProvider.reset();
     } catch (error) {
-      console.error("[ERROR] Error during search and replace:", error)
-      await this.handleError(block, "performing search and replace", error)
-      await this.diffViewProvider.reset()
-      return
+      console.error("[ERROR] Error during search and replace:", error);
+      await this.handleError(block, "performing search and replace", error);
+      await this.diffViewProvider.reset();
     }
   }
 
