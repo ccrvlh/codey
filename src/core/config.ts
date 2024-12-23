@@ -11,6 +11,13 @@ export interface AgentConfig {
   directoryContextMaxLines: number
   maxMistakeLimit: number
   exportIncludesSystemPrompt: boolean
+  // Editable prompts configuration
+  agentCapabilities?: string
+  agentObjectives?: string
+  agentDirectives?: string
+  agentRules?: string
+  toolUseInstructions?: string
+  toolUseGuidelines?: string
 }
 
 export class ConfigManager {
